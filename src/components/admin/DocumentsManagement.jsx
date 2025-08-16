@@ -16,6 +16,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Worker, Viewer } from '@react-pdf-viewer/core';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 export const DocumentsManagement = () => {
   const [documents, setDocuments] = useState([]);
@@ -270,26 +273,28 @@ export const DocumentsManagement = () => {
                                 <div className="border rounded-lg p-4">
                                   <h4 className="font-medium mb-2">Document Preview</h4>
                                   <div className="flex justify-center">
-                                    <img 
-                                      src={selectedDocument.document_url} 
-                                      alt="Document"
-                                      className="max-w-full max-h-96 object-contain rounded border"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'block';
-                                      }}
-                                    />
-                                    <div className="hidden text-center text-muted-foreground">
-                                      <FileText className="h-16 w-16 mx-auto mb-2" />
-                                      <p>Document preview not available</p>
-                                      <Button
-                                        variant="outline"
-                                        className="mt-2"
-                                        onClick={() => window.open(selectedDocument.document_url, '_blank')}
+                                    {selectedDocument && selectedDocument.file_type?.startsWith('image/') ? (
+                                      <img
+                                        src={selectedDocument.file_url}
+                                        alt="Document"
+                                        className="max-w-full max-h-96 object-contain rounded border"
+                                      />
+                                    ) : selectedDocument && selectedDocument.file_type === 'application/pdf' ? (
+                                      <div style={{ width: '500px', height: '600px' }}>
+                                        <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
+                                          <Viewer fileUrl={selectedDocument.file_url} />
+                                        </Worker>
+                                      </div>
+                                    ) : (
+                                      <a
+                                        href={selectedDocument?.file_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-500 underline"
                                       >
-                                        Open in new tab
-                                      </Button>
-                                    </div>
+                                        Download/Open Document
+                                      </a>
+                                    )}
                                   </div>
                                 </div>
                               </div>

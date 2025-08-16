@@ -12,7 +12,7 @@ import {
   detectOperatorFromPNR,
   formatPNR 
 } from '@/utils/pnrValidation';
-import { TicketApiClient } from '@/utils/ticketApiClient';
+// import { TicketApiClient } from '@/utils/ticketApiClient';
 import { ApiTestUtility } from './ApiTestUtility';
 import { 
   CheckCircle, 

@@ -17,6 +17,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Add a helper to check if the document belongs to an admin
+function isAdminDocument(doc) {
+  return doc.user_type === 'admin' || doc.kyc_status === 'admin'; // fallback if user_type is not present
+}
+
 export const DocumentsManagement = () => {
   const [documents, setDocuments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,9 +67,17 @@ export const DocumentsManagement = () => {
 
   const downloadDocument = async (documentUrl, fileName) => {
     try {
+      // Extract the storage path from the URL if a full URL is provided
+      let storagePath = documentUrl;
+      if (documentUrl.startsWith('http')) {
+        // Extract everything after 'kyc-documents/'
+        const match = documentUrl.match(/kyc-documents\/(.+)$/);
+        storagePath = match ? match[1] : documentUrl;
+      }
+
       const { data, error } = await supabase.storage
-        .from('documents')
-        .download(documentUrl);
+        .from('kyc-documents')
+        .download(storagePath);
 
       if (error) throw error;
 
@@ -76,7 +89,7 @@ export const DocumentsManagement = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       toast({
         title: "Success",
         description: "Document downloaded successfully.",
@@ -178,136 +191,66 @@ export const DocumentsManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDocuments.map((doc) => (
-                  <TableRow key={doc.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">{doc.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">{doc.email}</p>
+                {filteredDocuments.map((doc) => {
+                  const isAdmin = doc.user_type === 'admin';
+                  const kycStatus = isAdmin ? 'verified' : doc.kyc_status;
+                  return (
+                    <TableRow key={doc.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{doc.full_name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">{doc.email}</p>
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4" />
-                        <span className="font-medium">{doc.document_type}</span>
-                        {doc.document_type?.toLowerCase().includes('aadhar') && (
-                          <Badge variant="secondary" className="text-xs">Aadhar</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={
-                          doc.kyc_status === 'verified' 
-                            ? 'text-green-700 bg-green-100' 
-                            : doc.kyc_status === 'rejected'
-                            ? 'text-red-700 bg-red-100'
-                            : 'text-yellow-700 bg-yellow-100'
-                        }
-                      >
-                        {doc.kyc_status || 'pending'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(doc.uploaded_at), { addSuffix: true })}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedDocument(doc)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-3xl">
-                            <DialogHeader>
-                              <DialogTitle>Document Details</DialogTitle>
-                              <DialogDescription>
-                                {selectedDocument?.document_type} - {selectedDocument?.full_name}
-                              </DialogDescription>
-                            </DialogHeader>
-                            
-                            {selectedDocument && (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="text-sm font-medium">User Name</label>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedDocument.full_name || 'N/A'}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium">Email</label>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedDocument.email || 'N/A'}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium">Document Type</label>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedDocument.document_type}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium">Upload Date</label>
-                                    <p className="text-sm text-muted-foreground">
-                                      {new Date(selectedDocument.uploaded_at).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                <div className="border rounded-lg p-4">
-                                  <h4 className="font-medium mb-2">Document Preview</h4>
-                                  <div className="flex justify-center">
-                                    {selectedDocument && selectedDocument.file_type?.startsWith('image/') ? (
-                                      <img
-                                        src={selectedDocument.file_url}
-                                        alt="Document"
-                                        className="max-w-full max-h-96 object-contain rounded border"
-                                      />
-                                    ) : (
-                                      <a
-                                        href={selectedDocument?.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-500 underline"
-                                      >
-                                        Download/Open Document
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadDocument(
-                            doc.document_url, 
-                            `${doc.document_type}_${doc.full_name || 'unknown'}.jpg`
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <FileText className="h-4 w-4" />
+                          <span className="font-medium">{doc.document_type}</span>
+                          {doc.document_type?.toLowerCase().includes('aadhar') && (
+                            <Badge variant="secondary" className="text-xs">Aadhar</Badge>
                           )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            kycStatus === 'verified' 
+                              ? 'text-green-700 bg-green-100' 
+                              : kycStatus === 'rejected'
+                              ? 'text-red-700 bg-red-100'
+                              : 'text-yellow-700 bg-yellow-100'
+                          }
                         >
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {kycStatus || 'pending'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">
+                          {formatDistanceToNow(new Date(doc.uploaded_at), { addSuffix: true })}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadDocument(
+                              doc.document_url, 
+                              `${doc.document_type}_${doc.full_name || 'unknown'}.jpg`
+                            )}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filteredDocuments.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">

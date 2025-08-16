@@ -27,6 +27,44 @@ const VideoKYCSystem = () => {
   const [disconnected, setDisconnected] = useState(false);
   const [adminJoined, setAdminJoined] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [showPickCallDialog, setShowPickCallDialog] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Get current user ID on mount
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      setCurrentUserId(data?.user?.id || null);
+    })();
+  }, []);
+
+  // Real-time subscription for incoming calls
+  useEffect(() => {
+    if (!activeCall && currentUserId) {
+      const channel = supabase
+        .channel('video_calls_realtime_user_' + currentUserId)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'video_calls',
+          filter: `user_id=eq.${currentUserId}`
+        }, payload => {
+          if (
+            payload.new.status === 'waiting_user' ||
+            payload.new.status === 'waiting_admin'
+          ) {
+            setIncomingCall(payload.new);
+            setShowPickCallDialog(true);
+          }
+          if (payload.new.status === 'completed') {
+            endVideoCall();
+          }
+        })
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    }
+  }, [currentUserId, activeCall]);
 
   useEffect(() => {
     fetchPendingKYC();
@@ -133,6 +171,27 @@ const VideoKYCSystem = () => {
     }
   };
 
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+    await supabase
+      .from('video_calls')
+      .update({ status: 'in_call' })
+      .eq('id', incomingCall.id);
+    setShowPickCallDialog(false);
+    // Start WebRTC connection here (reuse startVideoCall logic)
+    startVideoCall({ id: incomingCall.user_id });
+  };
+
+  const handleRejectCall = async () => {
+    if (!incomingCall) return;
+    await supabase
+      .from('video_calls')
+      .update({ status: 'rejected' })
+      .eq('id', incomingCall.id);
+    setShowPickCallDialog(false);
+    setIncomingCall(null);
+  };
+
   // Clean up on end
   const endVideoCall = async () => {
     if (localStreamRef.current) {
@@ -145,6 +204,8 @@ const VideoKYCSystem = () => {
     leaveSignalingChannel();
     setActiveCall(null);
     setCallStatus('idle');
+    setShowPickCallDialog(false);
+    setIncomingCall(null);
     setCallId(null);
     setVerificationNotes('');
     setDisconnected(false);
@@ -444,6 +505,20 @@ const VideoKYCSystem = () => {
             </div>
           </DialogContent>
         </Dialog>
+        {showPickCallDialog && (
+          <Dialog open={showPickCallDialog} onOpenChange={setShowPickCallDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Incoming Video Call</DialogTitle>
+              </DialogHeader>
+              <div className="mb-4">You have an incoming video KYC call. Would you like to pick the call?</div>
+              <div className="flex gap-4 mt-4">
+                <Button onClick={handleAcceptCall}>Pick Call</Button>
+                <Button variant="outline" onClick={handleRejectCall}>Reject</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </TooltipProvider>
   );

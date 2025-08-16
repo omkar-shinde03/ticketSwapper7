@@ -29,6 +29,8 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
   const [statusMessage, setStatusMessage] = useState('');
   const [disconnected, setDisconnected] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [showPickCallDialog, setShowPickCallDialog] = useState(false);
 
   useEffect(() => {
     // Filter users with pending KYC
@@ -37,6 +39,34 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     );
     setPendingUsers(pending);
   }, [users]);
+
+  // Real-time subscription for incoming calls
+  useEffect(() => {
+    const { data: user } = supabase.auth.getUser();
+    if (!activeCall && user && user.data?.user?.id) {
+      const channel = supabase
+        .channel('video_calls_realtime_admin_' + user.data.user.id)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'video_calls',
+          filter: `admin_id=eq.${user.data.user.id}`
+        }, payload => {
+          if (
+            payload.new.status === 'waiting_admin' ||
+            payload.new.status === 'waiting_user'
+          ) {
+            setIncomingCall(payload.new);
+            setShowPickCallDialog(true);
+          }
+          if (payload.new.status === 'completed') {
+            endVideoCall();
+          }
+        })
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    }
+  }, [activeCall]);
 
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection({
@@ -68,8 +98,9 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      // 2. Find the user's waiting video call record
-      const { data: callData, error: callError } = await supabase
+      // 2. Find or create the user's waiting video call record
+      let callData, callError;
+      const { data, error } = await supabase
         .from('video_calls')
         .select('id')
         .eq('user_id', user.id)
@@ -77,7 +108,18 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-      if (callError || !callData) throw new Error('No waiting call found');
+      callData = data;
+      callError = error;
+      if (callError || !callData) {
+        // Create a new video_calls record if not found
+        const { data: newCall, error: newCallError } = await supabase
+          .from('video_calls')
+          .insert({ user_id: user.id, status: 'waiting_admin', call_type: 'kyc_verification' })
+          .select('id')
+          .single();
+        if (newCallError || !newCall) throw new Error('Failed to create video call record');
+        callData = newCall;
+      }
       setCallId(callData.id);
       // 3. Set up signaling
       const pc = createPeerConnection();
@@ -120,6 +162,27 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     }
   };
 
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+    await supabase
+      .from('video_calls')
+      .update({ status: 'in_call' })
+      .eq('id', incomingCall.id);
+    setShowPickCallDialog(false);
+    // Start WebRTC connection here (reuse startVideoCall logic)
+    startVideoCall({ id: incomingCall.user_id });
+  };
+
+  const handleRejectCall = async () => {
+    if (!incomingCall) return;
+    await supabase
+      .from('video_calls')
+      .update({ status: 'rejected' })
+      .eq('id', incomingCall.id);
+    setShowPickCallDialog(false);
+    setIncomingCall(null);
+  };
+
   const endVideoCall = () => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
@@ -132,6 +195,8 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     setShowVideoDialog(false);
     setActiveCall(null);
     setVerificationNotes("");
+    setShowPickCallDialog(false);
+    setIncomingCall(null);
   };
 
   const approveKYC = async () => {
@@ -484,6 +549,22 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
             )}
           </DialogContent>
         </Dialog>
+        {showPickCallDialog && (
+          <Dialog open={showPickCallDialog} onOpenChange={setShowPickCallDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Incoming Video Call</DialogTitle>
+                <DialogDescription>
+                  Video KYC call is incoming. Would you like to pick the call?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-4 mt-4">
+                <Button onClick={handleAcceptCall}>Pick Call</Button>
+                <Button variant="outline" onClick={handleRejectCall}>Reject</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </TooltipProvider>
   );

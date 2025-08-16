@@ -35,7 +35,7 @@ export const DocumentsManagement = () => {
       const { data, error } = await supabase
         .from('user_documents_with_profile')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('uploaded_at', { ascending: false });
 
       if (error) {
         console.error('Error loading documents:', error);
@@ -214,7 +214,7 @@ export const DocumentsManagement = () => {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(doc.uploaded_at), { addSuffix: true })}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -262,7 +262,7 @@ export const DocumentsManagement = () => {
                                   <div>
                                     <label className="text-sm font-medium">Upload Date</label>
                                     <p className="text-sm text-muted-foreground">
-                                      {new Date(selectedDocument.created_at).toLocaleDateString()}
+                                      {new Date(selectedDocument.uploaded_at).toLocaleDateString()}
                                     </p>
                                   </div>
                                 </div>

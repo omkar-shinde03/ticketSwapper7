@@ -39,7 +39,7 @@ const VideoKYCSystem = () => {
     })();
   }, []);
 
-  // Real-time subscription for incoming calls
+  // Real-time subscription for incoming calls (user side)
   useEffect(() => {
     if (!activeCall && currentUserId) {
       const channel = supabase
@@ -329,6 +329,9 @@ const VideoKYCSystem = () => {
     }
   };
 
+  // Only show KYC complete if call was actually connected
+  const showKYCComplete = callStatus === 'in_call' && !activeCall;
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -395,6 +398,11 @@ const VideoKYCSystem = () => {
         {authError && (
           <div className="mb-2 p-2 rounded bg-red-100 text-red-800 text-center font-medium" role="alert">
             {authError}
+          </div>
+        )}
+        {showKYCComplete && (
+          <div className="mb-2 p-2 rounded bg-green-100 text-green-800 text-center font-medium" role="alert">
+            Video Verification Complete! Your video verification has been completed. Admin is reviewing your KYC submission.
           </div>
         )}
         {/* Video Call Dialog */}

@@ -31,6 +31,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
   const [authError, setAuthError] = useState('');
   const [incomingCall, setIncomingCall] = useState(null);
   const [showPickCallDialog, setShowPickCallDialog] = useState(false);
+  const { data: user } = supabase.auth.getUser();
 
   useEffect(() => {
     // Filter users with pending KYC
@@ -40,22 +41,19 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     setPendingUsers(pending);
   }, [users]);
 
-  // Real-time subscription for incoming calls
+  // Real-time subscription for incoming calls (admin side)
   useEffect(() => {
-    const { data: user } = supabase.auth.getUser();
-    if (!activeCall && user && user.data?.user?.id) {
+    if (user?.id) {
       const channel = supabase
-        .channel('video_calls_realtime_admin_' + user.data.user.id)
+        .channel('video_calls_realtime_admin')
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
           table: 'video_calls',
-          filter: `admin_id=eq.${user.data.user.id}`
+          filter: `status=eq.waiting_admin`
         }, payload => {
-          if (
-            payload.new.status === 'waiting_admin' ||
-            payload.new.status === 'waiting_user'
-          ) {
+          // Only show for real users, not admin
+          if (payload.new && payload.new.user_id && payload.new.user_id !== user?.id) {
             setIncomingCall(payload.new);
             setShowPickCallDialog(true);
           }
@@ -66,7 +64,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
         .subscribe();
       return () => supabase.removeChannel(channel);
     }
-  }, [activeCall]);
+  }, [user]);
 
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection({
@@ -319,6 +317,8 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     }
   };
 
+  const filteredPendingUsers = pendingUsers.filter(u => u.user_type !== 'admin');
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -331,14 +331,14 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {pendingUsers.length === 0 ? (
+              {filteredPendingUsers.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <p className="text-gray-500">No pending KYC verifications</p>
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {pendingUsers.map((user) => (
+                  {filteredPendingUsers.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full">

@@ -179,6 +179,8 @@ const AdminDashboard = () => {
     );
   }
 
+  const filteredUsers = users.filter(user => user.user_type !== 'admin');
+
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminHeader profile={profile} user={user} onLogout={handleLogout} />
@@ -208,7 +210,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="video-kyc">
-            <VideoKYCVerification users={users} onUpdate={loadUsers} />
+            <VideoKYCVerification users={filteredUsers} onUpdate={loadUsers} />
           </TabsContent>
 
           <TabsContent value="tickets">

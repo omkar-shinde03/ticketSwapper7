@@ -31,19 +31,10 @@ export const DocumentsManagement = () => {
   const loadAllDocuments = async () => {
     try {
       setIsLoading(true);
-      
-      // Load all documents with user profiles
+      // Load all documents with user profile info from the view
       const { data, error } = await supabase
-        .from('user_documents')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name,
-            email,
-            phone,
-            kyc_status
-          )
-        `)
+        .from('user_documents_with_profile')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -102,8 +93,8 @@ export const DocumentsManagement = () => {
 
   const filteredDocuments = documents.filter(doc => 
     doc.document_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    doc.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const aadharDocuments = filteredDocuments.filter(doc => 
@@ -137,7 +128,7 @@ export const DocumentsManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {documents.filter(doc => doc.profiles?.kyc_status === 'pending').length}
+              {documents.filter(doc => doc.kyc_status === 'pending').length}
             </div>
           </CardContent>
         </Card>
@@ -147,7 +138,7 @@ export const DocumentsManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {documents.filter(doc => doc.profiles?.kyc_status === 'verified').length}
+              {documents.filter(doc => doc.kyc_status === 'verified').length}
             </div>
           </CardContent>
         </Card>
@@ -193,8 +184,8 @@ export const DocumentsManagement = () => {
                       <div className="flex items-center space-x-3">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">{doc.profiles?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">{doc.profiles?.email}</p>
+                          <p className="font-medium">{doc.full_name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{doc.email}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -211,14 +202,14 @@ export const DocumentsManagement = () => {
                       <Badge 
                         variant="outline" 
                         className={
-                          doc.profiles?.kyc_status === 'verified' 
+                          doc.kyc_status === 'verified' 
                             ? 'text-green-700 bg-green-100' 
-                            : doc.profiles?.kyc_status === 'rejected'
+                            : doc.kyc_status === 'rejected'
                             ? 'text-red-700 bg-red-100'
                             : 'text-yellow-700 bg-yellow-100'
                         }
                       >
-                        {doc.profiles?.kyc_status || 'pending'}
+                        {doc.kyc_status || 'pending'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -243,7 +234,7 @@ export const DocumentsManagement = () => {
                             <DialogHeader>
                               <DialogTitle>Document Details</DialogTitle>
                               <DialogDescription>
-                                {selectedDocument?.document_type} - {selectedDocument?.profiles?.full_name}
+                                {selectedDocument?.document_type} - {selectedDocument?.full_name}
                               </DialogDescription>
                             </DialogHeader>
                             
@@ -253,13 +244,13 @@ export const DocumentsManagement = () => {
                                   <div>
                                     <label className="text-sm font-medium">User Name</label>
                                     <p className="text-sm text-muted-foreground">
-                                      {selectedDocument.profiles?.full_name || 'N/A'}
+                                      {selectedDocument.full_name || 'N/A'}
                                     </p>
                                   </div>
                                   <div>
                                     <label className="text-sm font-medium">Email</label>
                                     <p className="text-sm text-muted-foreground">
-                                      {selectedDocument.profiles?.email || 'N/A'}
+                                      {selectedDocument.email || 'N/A'}
                                     </p>
                                   </div>
                                   <div>
@@ -311,7 +302,7 @@ export const DocumentsManagement = () => {
                           size="sm"
                           onClick={() => downloadDocument(
                             doc.document_url, 
-                            `${doc.document_type}_${doc.profiles?.full_name || 'unknown'}.jpg`
+                            `${doc.document_type}_${doc.full_name || 'unknown'}.jpg`
                           )}
                         >
                           <Download className="h-4 w-4 mr-1" />

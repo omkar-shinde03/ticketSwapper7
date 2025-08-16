@@ -62,7 +62,8 @@ class EnhancedErrorBoundary extends React.Component {
     }
   };
 
-  handleReset() {
+  // Use arrow functions to bind 'this' correctly
+  handleReset = () => {
     this.setState({
       hasError: false,
       error: null,
@@ -71,11 +72,11 @@ class EnhancedErrorBoundary extends React.Component {
     });
   };
 
-  handleReload() {
+  handleReload = () => {
     window.location.reload();
   };
 
-  handleGoHome() {
+  handleGoHome = () => {
     window.location.href = '/';
   };
 

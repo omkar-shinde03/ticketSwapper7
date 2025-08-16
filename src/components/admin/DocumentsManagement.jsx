@@ -16,9 +16,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Worker, Viewer } from '@react-pdf-viewer/core';
-import '@react-pdf-viewer/core/lib/styles/index.css';
-import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 export const DocumentsManagement = () => {
   const [documents, setDocuments] = useState([]);
@@ -279,12 +276,6 @@ export const DocumentsManagement = () => {
                                         alt="Document"
                                         className="max-w-full max-h-96 object-contain rounded border"
                                       />
-                                    ) : selectedDocument && selectedDocument.file_type === 'application/pdf' ? (
-                                      <div style={{ width: '500px', height: '600px' }}>
-                                        <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
-                                          <Viewer fileUrl={selectedDocument.file_url} />
-                                        </Worker>
-                                      </div>
                                     ) : (
                                       <a
                                         href={selectedDocument?.file_url}

@@ -107,29 +107,26 @@ class EnhancedErrorBoundary extends React.Component {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && (
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-muted-foreground mb-2">
-                    Error Details (Development)
-                  </summary>
-                  <div className="bg-muted p-3 rounded text-xs overflow-auto max-h-32">
-                    <div className="font-mono">
-                      <strong>Error:</strong> {this.state.error?.message}
-                    </div>
-                    <div className="font-mono mt-2">
-                      <strong>Stack:</strong>
-                      <pre className="whitespace-pre-wrap">
-                        {this.state.error?.stack}
-                      </pre>
-                    </div>
+              {/* Always show error details for debugging */}
+              <details className="text-sm" open>
+                <summary className="cursor-pointer text-muted-foreground mb-2">
+                  Error Details
+                </summary>
+                <div className="bg-muted p-3 rounded text-xs overflow-auto max-h-32">
+                  <div className="font-mono">
+                    <strong>Error:</strong> {this.state.error?.message}
                   </div>
-                </details>
-              )}
-              
+                  <div className="font-mono mt-2">
+                    <strong>Stack:</strong>
+                    <pre className="whitespace-pre-wrap">
+                      {this.state.error?.stack}
+                    </pre>
+                  </div>
+                </div>
+              </details>
               <div className="text-xs text-muted-foreground text-center">
                 Error ID: {this.state.errorId}
               </div>
-
               <div className="flex flex-col gap-2">
                 <Button onClick={this.handleReset} className="w-full">
                   <RefreshCw className="w-4 h-4 mr-2" />

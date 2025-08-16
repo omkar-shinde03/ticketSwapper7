@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
-import { TicketApiClient } from '@/utils/ticketApiClient';
+// import { TicketApiClient } from '@/utils/ticketApiClient';
 import { 
   Globe, 
   Send, 
@@ -164,10 +164,10 @@ export const ApiTestUtility = () => {
                 </>
               )}
             </Button>
-            <Button onClick={testTicketApiClient} disabled={isLoading} variant="outline">
+            {/* <Button onClick={testTicketApiClient} disabled={isLoading} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
               Test Client
-            </Button>
+            </Button> */}
           </div>
 
           {/* Test Results */}

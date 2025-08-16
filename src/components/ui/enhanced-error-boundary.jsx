@@ -51,11 +51,11 @@ class EnhancedErrorBoundary extends React.Component {
     if (process.env.NODE_ENV === 'production') {
       // Send to error tracking service
       try {
-        fetch('/api/log-error', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(errorData)
-        }).catch(console.error);
+        // fetch('/api/log-error', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(errorData)
+        // }).catch(console.error);
       } catch (e) {
         console.error('Failed to log error:', e);
       }

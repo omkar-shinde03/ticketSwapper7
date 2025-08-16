@@ -62,6 +62,26 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         throw uploadError;
       }
 
+      // Insert document record into user_documents table
+      const { data: user } = await supabase.auth.getUser();
+      console.log('DEBUG KYC user:', user); // Debug log
+      console.log('DEBUG KYC user_id for insert:', user?.user?.id); // Debug log
+      const { error: dbError } = await supabase
+        .from('user_documents')
+        .insert({
+          user_id: user.user.id,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          file_url: fileName, // or generate public URL if needed
+          storage_path: fileName,
+          document_type: 'aadhaar',
+          verification_status: 'pending'
+        });
+      if (dbError) {
+        throw dbError;
+      }
+
       setUploadedFile(fileName);
       setUploadStep('verify');
       

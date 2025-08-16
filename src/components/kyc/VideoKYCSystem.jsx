@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Video, VideoOff, Mic, MicOff, Phone, CheckCircle, XCircle, Eye, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { joinSignalingChannel, sendSignal, leaveSignalingChannel } from '@/utils/webrtcSignaling';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 const VideoKYCSystem = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -19,6 +21,12 @@ const VideoKYCSystem = () => {
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const { toast } = useToast();
+  const [peerConnection, setPeerConnection] = useState(null);
+  const [callId, setCallId] = useState(null);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [disconnected, setDisconnected] = useState(false);
+  const [adminJoined, setAdminJoined] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     fetchPendingKYC();
@@ -39,79 +47,110 @@ const VideoKYCSystem = () => {
     }
   };
 
+  // Helper to create a new WebRTC peer connection
+  const createPeerConnection = () => {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+      ],
+    });
+    pc.onicecandidate = (event) => {
+      if (event.candidate && callId) {
+        sendSignal(callId, { type: 'ice-candidate', candidate: event.candidate });
+      }
+    };
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+    return pc;
+  };
+
+  // Start video call (user side)
   const startVideoCall = async (user) => {
     try {
       setCallStatus('calling');
       setActiveCall(user);
-
-      // Request camera and microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-
+      // 1. Get user media
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-
-      // Create video call record
-      const { error } = await supabase
+      // 2. Create video_calls record
+      const { data, error } = await supabase
         .from('video_calls')
-        .insert({
-          user_id: user.id,
-          admin_id: (await supabase.auth.getUser()).data.user?.id,
-          status: 'active',
-          call_type: 'kyc_verification'
-        });
-
+        .insert({ user_id: user.id, status: 'waiting_admin', call_type: 'kyc_verification' })
+        .select()
+        .single();
       if (error) throw error;
-
-      setCallStatus('connected');
-      toast({
-        title: "Video Call Started",
-        description: `Connected with ${user.full_name}`,
+      setCallId(data.id);
+      const currentUser = await supabase.auth.getUser();
+      if (!currentUser.data.user || currentUser.data.user.id !== user.id) {
+        setAuthError('You are not authorized to join this call.');
+        setCallStatus('idle');
+        setActiveCall(null);
+        return;
+      }
+      // 3. Set up signaling
+      const pc = createPeerConnection();
+      setPeerConnection(pc);
+      // Add local tracks
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      // 4. Join signaling channel
+      joinSignalingChannel(data.id, async (msg) => {
+        if (msg.type === 'offer') {
+          setStatusMessage('Admin is connecting...');
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          sendSignal(data.id, { type: 'answer', answer });
+          setCallStatus('in_call');
+          setStatusMessage('In Call');
+        } else if (msg.type === 'ice-candidate' && msg.candidate) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+        } else if (msg.type === 'admin-joined') {
+          setStatusMessage('Admin joined. Connecting...');
+          setAdminJoined(true);
+          toast({ title: 'Admin Joined', description: 'The admin has joined the call.' });
+        }
       });
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          setDisconnected(true);
+          setStatusMessage('Admin disconnected. Call ended.');
+          setCallStatus('ended');
+          toast({ title: 'Call Ended', description: 'The admin has left the call.' });
+        }
+      };
+      setCallStatus('waiting');
+      toast({ title: 'Waiting for admin...', description: 'Please keep this window open.' });
     } catch (error) {
-      console.error('Error starting video call:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start video call",
-        variant: "destructive"
-      });
       setCallStatus('idle');
       setActiveCall(null);
+      toast({ title: 'Error', description: 'Failed to start video call', variant: 'destructive' });
     }
   };
 
+  // Clean up on end
   const endVideoCall = async () => {
-    try {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-
-      if (activeCall) {
-        await supabase
-          .from('video_calls')
-          .update({
-            status: 'completed',
-            ended_at: new Date().toISOString(),
-            notes: verificationNotes
-          })
-          .eq('user_id', activeCall.id)
-          .eq('status', 'active');
-      }
-
-      setActiveCall(null);
-      setCallStatus('idle');
-      setVerificationNotes('');
-      toast({
-        title: "Call Ended",
-        description: "Video call has been terminated",
-      });
-    } catch (error) {
-      console.error('Error ending call:', error);
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
     }
+    if (peerConnection) {
+      peerConnection.close();
+      setPeerConnection(null);
+    }
+    leaveSignalingChannel();
+    setActiveCall(null);
+    setCallStatus('idle');
+    setCallId(null);
+    setVerificationNotes('');
+    setDisconnected(false);
+    setStatusMessage('');
+    setAdminJoined(false);
+    setAuthError('');
   };
 
   const approveKYC = async () => {
@@ -230,147 +269,183 @@ const VideoKYCSystem = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5" />
-            Video KYC Verification System
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {pendingUsers.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No pending KYC verifications
-              </div>
-            ) : (
-              pendingUsers.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <h3 className="font-medium">{user.full_name}</h3>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline">Pending Verification</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        Submitted: {new Date(user.created_at).toLocaleDateString()}
-                      </span>
+    <TooltipProvider>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" />
+              Video KYC Verification System
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {pendingUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No pending KYC verifications
+                </div>
+              ) : (
+                pendingUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <h3 className="font-medium">{user.full_name}</h3>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline">Pending Verification</Badge>
+                        <span className="text-sm text-muted-foreground">
+                          Submitted: {new Date(user.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => viewDocument(user)}
+                        disabled={!user.kyc_documents}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Docs
+                      </Button>
+                      <Button
+                        onClick={() => startVideoCall(user)}
+                        disabled={callStatus !== 'idle'}
+                      >
+                        <Video className="h-4 w-4 mr-2" />
+                        Start Call
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => viewDocument(user)}
-                      disabled={!user.kyc_documents}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Docs
-                    </Button>
-                    <Button
-                      onClick={() => startVideoCall(user)}
-                      disabled={callStatus !== 'idle'}
-                    >
-                      <Video className="h-4 w-4 mr-2" />
-                      Start Call
-                    </Button>
-                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Status Banner */}
+        {statusMessage && (
+          <div role="status" aria-live="polite" className={`mb-4 p-2 rounded text-center font-medium ${disconnected ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}>{statusMessage}</div>
+        )}
+        {adminJoined && callStatus !== 'ended' && (
+          <div className="mb-2 p-2 rounded bg-green-100 text-green-800 text-center font-medium" role="alert">
+            Admin has joined the call. Please show your document for verification.
+          </div>
+        )}
+        {authError && (
+          <div className="mb-2 p-2 rounded bg-red-100 text-red-800 text-center font-medium" role="alert">
+            {authError}
+          </div>
+        )}
+        {/* Video Call Dialog */}
+        <Dialog open={activeCall !== null} onOpenChange={() => endVideoCall()}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Video KYC Verification - {activeCall?.full_name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Video Streams */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    className="w-full h-64 bg-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Your video preview"
+                  />
+                  <Badge className="absolute top-2 left-2">You</Badge>
                 </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Video Call Dialog */}
-      <Dialog open={activeCall !== null} onOpenChange={() => endVideoCall()}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Video KYC Verification - {activeCall?.full_name}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {/* Video Streams */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  className="w-full h-64 bg-gray-900 rounded-lg"
-                />
-                <Badge className="absolute top-2 left-2">Admin (You)</Badge>
+                <div className="relative">
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    className="w-full h-64 bg-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Admin video preview"
+                  />
+                  <Badge className="absolute top-2 left-2">Admin</Badge>
+                </div>
               </div>
-              <div className="relative">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  className="w-full h-64 bg-gray-900 rounded-lg"
+              {/* Call Controls */}
+              <div className="flex flex-wrap justify-center gap-4 pt-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className={`rounded-full h-12 w-12 flex items-center justify-center ${audioEnabled ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      aria-label={audioEnabled ? 'Mute microphone' : 'Unmute microphone'}
+                      tabIndex={0}
+                      onClick={toggleAudio}
+                    >
+                      {audioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{audioEnabled ? 'Mute Microphone' : 'Unmute Microphone'}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className={`rounded-full h-12 w-12 flex items-center justify-center ${videoEnabled ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      aria-label={videoEnabled ? 'Turn off video' : 'Turn on video'}
+                      tabIndex={0}
+                      onClick={toggleVideo}
+                    >
+                      {videoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{videoEnabled ? 'Turn Off Video' : 'Turn On Video'}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="rounded-full h-12 w-12 flex items-center justify-center bg-red-100 text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      aria-label="End call"
+                      tabIndex={0}
+                      onClick={endVideoCall}
+                    >
+                      <Phone className="h-5 w-5 rotate-45" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>End Call</TooltipContent>
+                </Tooltip>
+              </div>
+              {/* Verification Notes */}
+              <div>
+                <label className="text-sm font-medium">Verification Notes</label>
+                <Textarea
+                  placeholder="Add notes about the verification process..."
+                  value={verificationNotes}
+                  onChange={(e) => setVerificationNotes(e.target.value)}
+                  rows={3}
                 />
-                <Badge className="absolute top-2 left-2">{activeCall?.full_name}</Badge>
+              </div>
+
+              {/* Verification Actions */}
+              <div className="flex gap-4">
+                <Button
+                  onClick={approveKYC}
+                  className="flex-1"
+                  disabled={!verificationNotes.trim()}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve KYC
+                </Button>
+                <Button
+                  onClick={rejectKYC}
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={!verificationNotes.trim()}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject KYC
+                </Button>
               </div>
             </div>
-
-            {/* Call Controls */}
-            <div className="flex justify-center gap-4">
-              <Button
-                variant={audioEnabled ? "default" : "destructive"}
-                size="sm"
-                onClick={toggleAudio}
-              >
-                {audioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant={videoEnabled ? "default" : "destructive"}
-                size="sm"
-                onClick={toggleVideo}
-              >
-                {videoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={endVideoCall}
-              >
-                <Phone className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Verification Notes */}
-            <div>
-              <label className="text-sm font-medium">Verification Notes</label>
-              <Textarea
-                placeholder="Add notes about the verification process..."
-                value={verificationNotes}
-                onChange={(e) => setVerificationNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            {/* Verification Actions */}
-            <div className="flex gap-4">
-              <Button
-                onClick={approveKYC}
-                className="flex-1"
-                disabled={!verificationNotes.trim()}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Approve KYC
-              </Button>
-              <Button
-                onClick={rejectKYC}
-                variant="destructive"
-                className="flex-1"
-                disabled={!verificationNotes.trim()}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject KYC
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 };
 

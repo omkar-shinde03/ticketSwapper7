@@ -8,5 +8,6 @@ CREATE TABLE IF NOT EXISTS public.user_documents (
   file_url TEXT NOT NULL,
   storage_path TEXT NOT NULL,
   document_type TEXT DEFAULT 'aadhar',
+  verification_status TEXT DEFAULT 'pending',
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

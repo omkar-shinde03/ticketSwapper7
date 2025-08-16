@@ -23,6 +23,23 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const { toast } = useToast();
+  // Add a state to track if a document is already uploaded
+  const [documentExists, setDocumentExists] = useState(false);
+
+  // Check if user has already uploaded a document on mount
+  useEffect(() => {
+    async function checkDocument() {
+      if (!profile?.id) return;
+      const { data, error } = await supabase
+        .from('user_documents')
+        .select('id')
+        .eq('user_id', profile.id)
+        .limit(1)
+        .single();
+      setDocumentExists(!!data && !error);
+    }
+    checkDocument();
+  }, [profile?.id]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -277,7 +294,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {uploadStep === 'upload' && (
+        {!documentExists ? (
           <div className="space-y-4">
             <div>
               <Label htmlFor="aadhaar-upload" className="text-base font-medium">
@@ -308,6 +325,38 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
                 </p>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="space-y-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-green-600">
+              <CheckCircle className="h-6 w-6" />
+              <span className="font-medium">Document Already Uploaded</span>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setDocumentExists(false)}
+              className="mb-2"
+            >
+              Re-upload Document
+            </Button>
+          </div>
+        )}
+
+        {documentExists && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <Video className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+            <h3 className="font-medium text-blue-900 mb-2">Video Verification Required</h3>
+            <p className="text-sm text-blue-700 mb-4">
+              To complete your KYC, we need to verify your identity through a quick video call
+            </p>
+            <Button 
+              onClick={startVideoCall}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Video className="h-4 w-4 mr-2" />
+              Start Video Verification
+            </Button>
           </div>
         )}
 

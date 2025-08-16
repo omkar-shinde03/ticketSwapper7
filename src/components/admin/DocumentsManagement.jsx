@@ -65,22 +65,19 @@ export const DocumentsManagement = () => {
     }
   };
 
-  const downloadDocument = async (documentUrl, fileName) => {
+  const downloadDocument = async (documentUrl, fileName, storagePathFromDb) => {
     try {
-      // Extract the storage path from the URL if a full URL is provided
-      let storagePath = documentUrl;
-      if (documentUrl.startsWith('http')) {
-        // Extract everything after 'kyc-documents/'
-        const match = documentUrl.match(/kyc-documents\/(.+)$/);
+      // Prefer storagePathFromDb if available
+      let storagePath = storagePathFromDb || documentUrl;
+      // If documentUrl is a full URL, extract the path after 'kyc-documents/'
+      if (documentUrl && documentUrl.startsWith('http')) {
+        const match = documentUrl.match(/kyc-documents\/([^?]+)/);
         storagePath = match ? match[1] : documentUrl;
       }
-
       const { data, error } = await supabase.storage
         .from('kyc-documents')
         .download(storagePath);
-
       if (error) throw error;
-
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -89,7 +86,6 @@ export const DocumentsManagement = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
       toast({
         title: "Success",
         description: "Document downloaded successfully.",
@@ -239,8 +235,9 @@ export const DocumentsManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => downloadDocument(
-                              doc.document_url, 
-                              `${doc.document_type}_${doc.full_name || 'unknown'}.jpg`
+                              doc.document_url,
+                              `${doc.document_type}_${doc.full_name || 'unknown'}.pdf`,
+                              doc.storage_path
                             )}
                           >
                             <Download className="h-4 w-4 mr-1" />

@@ -1,15 +1,9 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmailVerificationGuard from "./EmailVerificationGuard";
-import { TicketVerificationForm } from "./TicketVerificationForm";
+import { NewTicketVerificationSystem } from "./NewTicketVerificationSystem";
 
 export const SellTicketForm = ({ user, onTicketAdded }) => {
-  const handleVerificationComplete = (ticket) => {
-    if (onTicketAdded) {
-      onTicketAdded(ticket);
-    }
-  };
-
   return (
     <EmailVerificationGuard requiredFor="sell tickets">
       <Card>
@@ -19,7 +13,7 @@ export const SellTicketForm = ({ user, onTicketAdded }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <TicketVerificationForm onVerificationComplete={handleVerificationComplete} />
+          <NewTicketVerificationSystem onComplete={onTicketAdded} />
         </CardContent>
       </Card>
     </EmailVerificationGuard>

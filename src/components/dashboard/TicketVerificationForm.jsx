@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Shield, CheckCircle, XCircle, Train, Bus, Plane, Calendar, Clock, MapPin, User, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TicketApiClient } from '@/utils/ticketApiClient';
+// import { TicketApiClient } from '@/utils/ticketApiClient';
+import { createTicket, getTickets, updateTicket, deleteTicket, verifyExternalTicketNewSchema } from '@/utils/ticketApiClient';
 
 export const TicketVerificationForm = ({ transportMode = 'bus', onVerificationComplete }) => {
   const [selectedTicketType, setSelectedTicketType] = useState(transportMode);
@@ -33,14 +34,8 @@ export const TicketVerificationForm = ({ transportMode = 'bus', onVerificationCo
   };
 
   const getRequiredFields = () => {
-    const commonFields = ['pnrNumber', 'passengerName', 'departureDate', 'departureTime', 'fromLocation', 'toLocation', 'seatNumber', 'ticketPrice'];
-    
-    if (selectedTicketType === 'train') {
-      return [...commonFields, 'trainNumber', 'railwayOperator'];
-    } else if (selectedTicketType === 'plane') {
-      return [...commonFields, 'flightNumber', 'airlineOperator'];
-    }
-    return [...commonFields, 'busOperator'];
+    // Only require PNR and passenger name for all types
+    return ['pnrNumber', 'passengerName'];
   };
 
   const isFormValid = () => {
@@ -59,84 +54,65 @@ export const TicketVerificationForm = ({ transportMode = 'bus', onVerificationCo
     }
 
     setIsVerifying(true);
-    
     try {
-      let verificationData = {
-        ticket_type: selectedTicketType,
-        pnrNumber: formData.pnrNumber,
-        passengerName: formData.passengerName,
-        transportMode: selectedTicketType,
-        departureDate: formData.departureDate,
-        departureTime: formData.departureTime,
-        fromLocation: formData.fromLocation,
-        toLocation: formData.toLocation,
-        seatNumber: formData.seatNumber,
-        ticketPrice: parseFloat(formData.ticketPrice),
-        sellingPrice: formData.sellingPrice ? parseFloat(formData.sellingPrice) : parseFloat(formData.ticketPrice)
-      };
-
-      // Add transport-specific data
-      if (selectedTicketType === 'train') {
-        verificationData = {
-          ...verificationData,
-          trainNumber: formData.trainNumber,
-          railwayOperator: formData.railwayOperator,
-          platformNumber: formData.platformNumber,
-          coachClass: formData.coachClass,
-          berthType: formData.berthType,
-          railwayZone: formData.railwayZone,
-          isTatkal: formData.isTatkal
-        };
-      } else if (selectedTicketType === 'plane') {
-        verificationData = {
-          ...verificationData,
-          flightNumber: formData.flightNumber,
-          airlineOperator: formData.airlineOperator,
-          cabinClass: formData.cabinClass,
-          airportTerminal: formData.airportTerminal,
-          baggageAllowance: formData.baggageAllowance
-        };
-      } else {
-        verificationData = {
-          ...verificationData,
-          busOperator: formData.busOperator
-        };
-      }
-
-      const result = await TicketApiClient.verifyTicket(verificationData);
-
-      if (result.verified && result.ticketData) {
+      let pnr_number = formData.pnrNumber;
+      let ticketType = selectedTicketType; // 'bus', 'train', or 'plane'
+      // Call new schema API to verify ticket
+      const ticket = await verifyExternalTicketNewSchema({ ticketType, pnr_number });
+      if (ticket) {
+        // Check if ticket is expired
+        const depDate = ticket.departure_date;
+        const depTime = ticket.departure_time;
+        let isExpired = false;
+        if (depDate && depTime) {
+          const depDateTime = new Date(`${depDate}T${depTime}`);
+          isExpired = depDateTime < new Date();
+        } else if (depDate) {
+          // If only date, compare date
+          isExpired = new Date(depDate) < new Date(new Date().toDateString());
+        }
+        if (isExpired) {
+          setVerificationResult({
+            verified: false,
+            message: 'Ticket validity is expired. This ticket is from the past and cannot be listed.'
+          });
+          toast({
+            title: 'Ticket Expired',
+            description: 'This ticket is from the past and cannot be listed.',
+            variant: 'destructive'
+          });
+          setIsVerifying(false);
+          return;
+        }
+        // Ticket is verified externally and not expired
+        // Pass the full ticket object from the API, adding only selling_price and verification_status
         const enhancedTicketData = {
-          ...result.ticketData,
-          ...verificationData,
+          ...ticket, // all fields from API
+          selling_price: formData.sellingPrice, // add selling price
           verification_status: 'verified',
-          verified_at: new Date().toISOString()
+          verified_at: new Date().toISOString(),
         };
-
         setVerificationResult({
           verified: true,
           ticketData: enhancedTicketData,
-          message: `${selectedTicketType.charAt(0).toUpperCase() + selectedTicketType.slice(1)} ticket verified successfully!`
+          message: `${ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} ticket verified successfully!`
         });
-
         toast({
           title: 'Verification Successful!',
           description: `Your ${selectedTicketType} ticket has been verified and is ready for listing.`,
           variant: 'default'
         });
-
         if (onVerificationComplete) {
           onVerificationComplete(enhancedTicketData);
         }
       } else {
         setVerificationResult({
           verified: false,
-          message: result.message || `Failed to verify ${selectedTicketType} ticket. Please check your details and try again.`
+          message: `No ${selectedTicketType} ticket found for the provided PNR.`
         });
-
         toast({
           title: 'Verification Failed',
-          description: result.message || `Unable to verify ${selectedTicketType} ticket. Please check your details.`,
+          description: `Unable to verify ${selectedTicketType} ticket. Please check your details.`,
           variant: 'destructive'
         });
       }
@@ -146,7 +122,6 @@ export const TicketVerificationForm = ({ transportMode = 'bus', onVerificationCo
         verified: false,
         message: `Error during verification: ${error.message}`
       });
-
       toast({
         title: 'Verification Error',
         description: 'An error occurred during verification. Please try again.',
@@ -291,21 +266,22 @@ export const TicketVerificationForm = ({ transportMode = 'bus', onVerificationCo
             <h4 className="font-medium text-green-900 mb-2">Verified Ticket Details</h4>
             <div className="space-y-2 text-sm text-green-800">
               <div className="flex justify-between">
-                <span>PNR Number:</span>
-                <span className="font-medium">{verificationResult.ticketData.pnrNumber}</span>
+                <span>Original Price:</span>
+                <span className="font-medium">{verificationResult.ticketData.ticket_price}</span>
               </div>
               <div className="flex justify-between">
-                <span>Passenger:</span>
-                <span className="font-medium">{verificationResult.ticketData.passengerName}</span>
+                <span>Selling Price:</span>
+                <span className="font-medium">{verificationResult.ticketData.selling_price}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Route:</span>
-                <span className="font-medium">{verificationResult.ticketData.fromLocation} → {verificationResult.ticketData.toLocation}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Date & Time:</span>
-                <span className="font-medium">{verificationResult.ticketData.departureDate} at {verificationResult.ticketData.departureTime}</span>
-              </div>
+              {/* Show all other fields dynamically, except ticket_price and selling_price */}
+              {Object.entries(verificationResult.ticketData)
+                .filter(([key]) => key !== 'ticket_price' && key !== 'selling_price')
+                .map(([key, value]) => (
+                  <div className="flex justify-between" key={key}>
+                    <span>{key}:</span>
+                    <span className="font-medium">{String(value)}</span>
+                  </div>
+                ))}
             </div>
           </div>
           

@@ -9,24 +9,38 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete }) => {
-  const [sellingPrice, setSellingPrice] = useState('');
+  // Debug log to inspect the ticket data
+  console.log('VerifiedTicketData:', verifiedTicketData);
+  // Re-add isListing for button loading state
   const [isListing, setIsListing] = useState(false);
+  // Remove the selling price input and related state/logic
+  // Use verifiedTicketData.selling_price as the selling price
+  // Display both ticket_price (original) and selling_price (final) in the summary
+
   const { toast } = useToast();
 
+  // Define transportMode at the top for use throughout the component
+  const transportMode = verifiedTicketData.transport_mode || 'bus';
+
   const handleListTicket = async () => {
-    if (!sellingPrice || parseFloat(sellingPrice) <= 0) {
+    // Check for duplicate listing
+    const { data: existingTickets, error: checkError } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('pnr_number', verifiedTicketData.pnr_number)
+      .eq('transport_mode', verifiedTicketData.transport_mode);
+    if (checkError) {
       toast({
-        title: 'Invalid Price',
-        description: 'Please enter a valid selling price',
+        title: 'Error',
+        description: 'Could not check for existing ticket. Please try again.',
         variant: 'destructive'
       });
       return;
     }
-
-    if (parseFloat(sellingPrice) > parseFloat(verifiedTicketData.ticket_price)) {
+    if (existingTickets && existingTickets.length > 0) {
       toast({
-        title: 'Price Too High',
-        description: 'Selling price cannot be higher than original ticket price',
+        title: 'Ticket already listed',
+        description: 'This ticket has already been listed and cannot be listed again.',
         variant: 'destructive'
       });
       return;
@@ -40,55 +54,22 @@ export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete })
         throw new Error('User not authenticated');
       }
 
-      // Get transport mode from verified ticket data
-      const transportMode = verifiedTicketData.transport_mode || 'bus';
-
-      // Prepare ticket data based on transport mode
+      // Prepare ticket data: use all fields from the API, plus any additional fields
       const ticketData = {
+        ...verifiedTicketData, // all fields from API
         seller_id: user.id,
-        pnr_number: verifiedTicketData.pnr_number,
-        departure_date: verifiedTicketData.departure_date,
-        departure_time: verifiedTicketData.departure_time,
-        from_location: verifiedTicketData.from_location,
-        to_location: verifiedTicketData.to_location,
-        passenger_name: verifiedTicketData.passenger_name,
-        ticket_price: parseFloat(verifiedTicketData.ticket_price),
-        selling_price: parseFloat(sellingPrice),
         status: 'available',
         verification_status: 'verified',
         transport_mode: transportMode,
         api_verified: true,
-        api_provider: 'ticekt-demo-api',
+        api_provider: 'ticket-demo-api',
         verification_confidence: 100,
-        verified_at: new Date().toISOString()
+        verified_at: new Date().toISOString(),
+        selling_price: verifiedTicketData.selling_price,
       };
-
-      // Add transport-specific fields
-      if (transportMode === 'train') {
-        ticketData.train_number = verifiedTicketData.train_number;
-        ticketData.railway_operator = verifiedTicketData.railway_operator;
-        ticketData.platform_number = verifiedTicketData.platform_number;
-        ticketData.coach_class = verifiedTicketData.coach_class;
-        ticketData.berth_type = verifiedTicketData.berth_type;
-        ticketData.railway_zone = verifiedTicketData.railway_zone;
-        ticketData.is_tatkal = verifiedTicketData.is_tatkal;
-        // For trains, use coach_class + berth_type as seat_number equivalent
-        ticketData.seat_number = `${verifiedTicketData.coach_class || 'N/A'} - ${verifiedTicketData.berth_type || 'N/A'}`;
-      } else if (transportMode === 'plane') {
-        ticketData.flight_number = verifiedTicketData.flight_number;
-        ticketData.airline_operator = verifiedTicketData.airline_operator;
-        ticketData.cabin_class = verifiedTicketData.cabin_class;
-        ticketData.airport_terminal = verifiedTicketData.airport_terminal;
-        ticketData.baggage_allowance = verifiedTicketData.baggage_allowance;
-        // For planes, use cabin_class + seat_number
-        ticketData.seat_number = `${verifiedTicketData.cabin_class || 'N/A'} - ${verifiedTicketData.seat_number || 'N/A'}`;
-      } else {
-        // Bus fields
-        ticketData.bus_operator = verifiedTicketData.bus_operator;
-        ticketData.seat_number = verifiedTicketData.seat_number;
-      }
-
-      // Create verified ticket listing
+      // Debug log before insert
+      console.log('ticketData before insert:', ticketData);
+      // Insert the full object
       const { data, error } = await supabase
         .from('tickets')
         .insert(ticketData)
@@ -104,7 +85,7 @@ export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete })
       });
 
       if (onListingComplete) {
-        onListingComplete(data[0]);
+        onListingComplete(ticketData); // Use the full object you just inserted
       }
     } catch (error) {
       console.error('Error listing ticket:', error);
@@ -118,12 +99,13 @@ export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete })
     }
   };
 
-  const discountPercentage = verifiedTicketData.ticket_price 
-    ? Math.round(((parseFloat(verifiedTicketData.ticket_price) - parseFloat(sellingPrice || 0)) / parseFloat(verifiedTicketData.ticket_price)) * 100)
-    : 0;
+  // Remove the discountPercentage calculation
+  // const discountPercentage = verifiedTicketData.ticket_price 
+  //   ? Math.round(((parseFloat(verifiedTicketData.ticket_price) - parseFloat(sellingPrice || 0)) / parseFloat(verifiedTicketData.ticket_price)) * 100)
+  //   : 0;
 
   const renderTransportSpecificDetails = () => {
-    const transportMode = verifiedTicketData.transport_mode || 'bus';
+    // Use transportMode here
     if (transportMode === 'train') {
       return (
         <>
@@ -211,18 +193,71 @@ export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete })
     );
   };
 
+  const originalPrice = Number(verifiedTicketData.ticket_price);
+  const sellingPrice = Number(verifiedTicketData.selling_price);
+  const discountPercentage = originalPrice > 0 ? Math.round(((originalPrice - sellingPrice) / originalPrice) * 100) : 0;
+
+  // Replace the details section with type-aware rendering:
+  const renderTicketDetails = () => {
+    if (transportMode === 'bus') {
+      return (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div><span className="text-gray-500">PNR:</span><span className="ml-2 font-medium">{verifiedTicketData.pnr_number || verifiedTicketData.pnr || ''}</span></div>
+          <div><span className="text-gray-500">Passenger:</span><span className="ml-2 font-medium">{verifiedTicketData.passenger_name || verifiedTicketData.passenger || ''}</span></div>
+          <div><span className="text-gray-500">Route:</span><span className="ml-2 font-medium">{(verifiedTicketData.from_location || verifiedTicketData.source_location || verifiedTicketData.from || '') + ' → ' + (verifiedTicketData.to_location || verifiedTicketData.destination_location || verifiedTicketData.to || '')}</span></div>
+          <div><span className="text-gray-500">Date & Time:</span><span className="ml-2 font-medium">{(verifiedTicketData.departure_date || '') + (verifiedTicketData.departure_time ? ' at ' + verifiedTicketData.departure_time : '')}</span></div>
+          <div><span className="text-gray-500">Operator:</span><span className="ml-2 font-medium">{verifiedTicketData.bus_operator || verifiedTicketData.operator || ''}</span></div>
+          <div><span className="text-gray-500">Seat:</span><span className="ml-2 font-medium">{verifiedTicketData.seat_number || verifiedTicketData.seat || ''}</span></div>
+          <div className="col-span-2"><span className="text-gray-500">Original Price:</span><span className="ml-2 font-bold text-green-600">₹{verifiedTicketData.ticket_price || verifiedTicketData.price || ''}</span></div>
+          <div className="col-span-2"><span className="text-gray-500">Selling Price:</span><span className="ml-2 font-bold text-blue-600">₹{verifiedTicketData.selling_price || ''}</span></div>
+        </div>
+      );
+    } else if (transportMode === 'train') {
+      return (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div><span className="text-gray-500">PNR:</span><span className="ml-2 font-medium">{verifiedTicketData.pnr_number}</span></div>
+          <div><span className="text-gray-500">Passenger:</span><span className="ml-2 font-medium">{verifiedTicketData.passenger_name}</span></div>
+          <div><span className="text-gray-500">Route:</span><span className="ml-2 font-medium">{(verifiedTicketData.from_location || verifiedTicketData.source_station) + ' → ' + (verifiedTicketData.to_location || verifiedTicketData.destination_station)}</span></div>
+          <div><span className="text-gray-500">Date & Time:</span><span className="ml-2 font-medium">{verifiedTicketData.departure_date} at {verifiedTicketData.departure_time}</span></div>
+          <div><span className="text-gray-500">Train Name/Number:</span><span className="ml-2 font-medium">{verifiedTicketData.train_name} / {verifiedTicketData.train_number}</span></div>
+          <div><span className="text-gray-500">Coach:</span><span className="ml-2 font-medium">{verifiedTicketData.coach_number}</span></div>
+          <div><span className="text-gray-500">Seat:</span><span className="ml-2 font-medium">{verifiedTicketData.seat_number}</span></div>
+          <div><span className="text-gray-500">Ticket Class:</span><span className="ml-2 font-medium">{verifiedTicketData.ticket_class}</span></div>
+          <div className="col-span-2"><span className="text-gray-500">Original Price:</span><span className="ml-2 font-bold text-green-600">₹{verifiedTicketData.ticket_price}</span></div>
+          <div className="col-span-2"><span className="text-gray-500">Selling Price:</span><span className="ml-2 font-bold text-blue-600">₹{verifiedTicketData.selling_price}</span></div>
+        </div>
+      );
+    } else if (transportMode === 'plane') {
+      return (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div><span className="text-gray-500">PNR:</span><span className="ml-2 font-medium">{verifiedTicketData.pnr_number}</span></div>
+          <div><span className="text-gray-500">Passenger:</span><span className="ml-2 font-medium">{verifiedTicketData.passenger_name}</span></div>
+          <div><span className="text-gray-500">Route:</span><span className="ml-2 font-medium">{(verifiedTicketData.from_location || verifiedTicketData.source_airport) + ' → ' + (verifiedTicketData.to_location || verifiedTicketData.destination_airport)}</span></div>
+          <div><span className="text-gray-500">Date & Time:</span><span className="ml-2 font-medium">{verifiedTicketData.departure_date} at {verifiedTicketData.departure_time}</span></div>
+          <div><span className="text-gray-500">Flight Number:</span><span className="ml-2 font-medium">{verifiedTicketData.flight_number}</span></div>
+          <div><span className="text-gray-500">Airline:</span><span className="ml-2 font-medium">{verifiedTicketData.airline_name}</span></div>
+          <div><span className="text-gray-500">Seat:</span><span className="ml-2 font-medium">{verifiedTicketData.seat_number}</span></div>
+          <div><span className="text-gray-500">Ticket Class:</span><span className="ml-2 font-medium">{verifiedTicketData.ticket_class}</span></div>
+          <div><span className="text-gray-500">Baggage:</span><span className="ml-2 font-medium">{verifiedTicketData.baggage_allowance}</span></div>
+          <div className="col-span-2"><span className="text-gray-500">Original Price:</span><span className="ml-2 font-bold text-green-600">₹{verifiedTicketData.ticket_price}</span></div>
+          <div className="col-span-2"><span className="text-gray-500">Selling Price:</span><span className="ml-2 font-bold text-blue-600">₹{verifiedTicketData.selling_price}</span></div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <CheckCircle className="h-5 w-5 text-green-600" />
-          <span>List Verified {verifiedTicketData.transport_mode === 'train' ? 'Train' : verifiedTicketData.transport_mode === 'plane' ? 'Plane' : 'Bus'} Ticket</span>
+          <span>List Verified {transportMode === 'train' ? 'Train' : transportMode === 'plane' ? 'Plane' : 'Bus'} Ticket</span>
         </CardTitle>
         <CardDescription>
-          Set your selling price and list your verified {verifiedTicketData.transport_mode === 'train' ? 'train' : verifiedTicketData.transport_mode === 'plane' ? 'plane' : 'bus'} ticket for sale
+          Set your selling price and list your verified {transportMode === 'train' ? 'train' : transportMode === 'plane' ? 'plane' : 'bus'} ticket for sale
         </CardDescription>
       </CardHeader>
-      
       <CardContent className="space-y-6">
         {/* Verification Status */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -233,75 +268,12 @@ export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete })
             </Badge>
           </div>
           <p className="text-sm text-green-700">
-            This {verifiedTicketData.transport_mode === 'train' ? 'train' : verifiedTicketData.transport_mode === 'plane' ? 'plane' : 'bus'} ticket has been verified against the official {verifiedTicketData.transport_mode === 'train' ? 'railway' : verifiedTicketData.transport_mode === 'plane' ? 'airline' : 'bus operator'} database.
+            This {transportMode === 'train' ? 'train' : transportMode === 'plane' ? 'plane' : 'bus'} ticket has been verified against the official {transportMode === 'train' ? 'railway' : transportMode === 'plane' ? 'airline' : 'bus operator'} database.
           </p>
         </div>
-
-        {/* Ticket Details Summary */}
-        <div className="bg-gray-50 border rounded-lg p-4">
-          <h3 className="font-medium text-gray-900 mb-3 flex items-center space-x-2">
-            {verifiedTicketData.transport_mode === 'train' ? (
-              <Train className="h-4 w-4 text-green-600" />
-            ) : verifiedTicketData.transport_mode === 'plane' ? (
-              <Plane className="h-4 w-4 text-purple-600" />
-            ) : (
-              <Bus className="h-4 w-4 text-blue-600" />
-            )}
-            <span>{verifiedTicketData.transport_mode === 'train' ? 'Train' : verifiedTicketData.transport_mode === 'plane' ? 'Plane' : 'Bus'} Ticket Details</span>
-          </h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-gray-500">PNR:</span>
-              <span className="ml-2 font-medium">{verifiedTicketData.pnr_number}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Passenger:</span>
-              <span className="ml-2 font-medium">{verifiedTicketData.passenger_name}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Route:</span>
-              <span className="ml-2 font-medium">
-                {verifiedTicketData.from_location} → {verifiedTicketData.to_location}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Date & Time:</span>
-              <span className="ml-2 font-medium">
-                {verifiedTicketData.departure_date} at {verifiedTicketData.departure_time}
-              </span>
-            </div>
-            {renderTransportSpecificDetails()}
-            <div className="col-span-2">
-              <span className="text-gray-500">Original Price:</span>
-              <span className="ml-2 font-bold text-green-600">₹{verifiedTicketData.ticket_price}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Pricing Section */}
+        {/* Only keep the Price Analysis section and List button */}
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="sellingPrice" className="flex items-center space-x-2">
-              <DollarSign className="h-4 w-4" />
-              <span>Set Your Selling Price *</span>
-            </Label>
-            <Input
-              id="sellingPrice"
-              type="number"
-              placeholder="Enter selling price"
-              value={sellingPrice}
-              onChange={(e) => setSellingPrice(e.target.value)}
-              disabled={isListing}
-              max={verifiedTicketData.ticket_price}
-              min="1"
-            />
-            <p className="text-xs text-gray-500">
-              Maximum allowed: ₹{verifiedTicketData.ticket_price} (original price)
-            </p>
-          </div>
-
-          {/* Price Analysis */}
-          {sellingPrice && parseFloat(sellingPrice) > 0 && (
+          {verifiedTicketData.selling_price && parseFloat(verifiedTicketData.selling_price) > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <Tag className="h-4 w-4 text-blue-600" />
@@ -321,33 +293,21 @@ export const VerifiedTicketListing = ({ verifiedTicketData, onListingComplete })
                 <div className="flex justify-between">
                   <span className="text-blue-700">Savings for buyer:</span>
                   <span className="font-medium text-green-600">
-                    ₹{Math.max(0, parseFloat(verifiedTicketData.ticket_price) - parseFloat(sellingPrice))}
+                    ₹{Math.max(0, originalPrice - sellingPrice)}
                   </span>
                 </div>
               </div>
             </div>
           )}
         </div>
-
-        {/* List Button */}
         <Button 
           onClick={handleListTicket}
-          disabled={isListing || !sellingPrice || parseFloat(sellingPrice) <= 0}
+          disabled={isListing || !verifiedTicketData.selling_price || parseFloat(verifiedTicketData.selling_price) <= 0}
           className="w-full"
           size="lg"
         >
-          {isListing ? 'Listing Ticket...' : `List Verified ${transportMode === 'train' ? 'Train' : 'Bus'} Ticket for Sale`}
+          {isListing ? 'Listing Ticket...' : `List Verified ${transportMode === 'train' ? 'Train' : transportMode === 'plane' ? 'Plane' : 'Bus'} Ticket for Sale`}
         </Button>
-
-        {/* Terms */}
-        <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-          <p className="font-medium mb-1">By listing this ticket, you agree that:</p>
-          <ul className="space-y-1 ml-4 list-disc">
-            <li>The {transportMode === 'train' ? 'train' : 'bus'} ticket information is accurate and verified</li>
-            <li>You will transfer the ticket promptly upon sale</li>
-            <li>Platform fees may apply to the transaction</li>
-          </ul>
-        </div>
       </CardContent>
     </Card>
   );

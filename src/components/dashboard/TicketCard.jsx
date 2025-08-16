@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { QuickPurchaseButton } from "@/components/purchase/QuickPurchaseButton";
 
 const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
+  // Debug log to inspect the ticket data
+  console.log('TicketCard ticket:', ticket);
   const getStatusBadge = (status) => {
     const statusConfig = {
       available: { label: "Available", variant: "default" },
@@ -59,24 +61,18 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
 
   const getOperatorName = () => {
     if (ticket.transport_mode === 'train') {
-      return ticket.railway_operator || 'Indian Railways';
+      return ticket.railway_operator || ticket.train_name || 'Indian Railways';
     } else if (ticket.transport_mode === 'plane') {
-      return ticket.airline_operator || 'Airline';
+      return ticket.airline_name || ticket.airline_operator || 'Airline';
     }
-    return ticket.bus_operator || 'Bus Operator';
+    return ticket.bus_operator || ticket.operator || 'Bus Operator';
   };
 
   const getSeatInfo = () => {
     if (ticket.transport_mode === 'train') {
-      if (ticket.coach_class && ticket.berth_type) {
-        return `${ticket.coach_class} - ${ticket.berth_type}`;
-      }
-      return ticket.seat_number || 'N/A';
+      return ticket.seat_number || ticket.coach_number || 'N/A';
     } else if (ticket.transport_mode === 'plane') {
-      if (ticket.cabin_class && ticket.seat_number) {
-        return `${ticket.cabin_class} - ${ticket.seat_number}`;
-      }
-      return ticket.seat_number || 'N/A';
+      return ticket.seat_number || ticket.cabin_class || 'N/A';
     }
     return ticket.seat_number || 'N/A';
   };
@@ -126,10 +122,13 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
                 {getOperatorName()}
               </CardTitle>
             </div>
-            <CardDescription className="flex items-center gap-1 mt-1">
-              <User className="h-3 w-3" />
-              {ticket.passenger_name}
-            </CardDescription>
+            {/* Show passenger name under the operator if present */}
+            {ticket.passenger_name && (
+              <CardDescription className="flex items-center gap-1 mt-1">
+                <User className="h-3 w-3" />
+                {ticket.passenger_name}
+              </CardDescription>
+            )}
             {/* Show seller info if available (from database function) */}
             {ticket.seller_name && !isOwner && (
               <CardDescription className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -146,14 +145,13 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
           </div>
         </div>
       </CardHeader>
-      
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">{ticket.from_location || ticket.from}</span>
+            <span className="font-medium">{ticket.from_location || ticket.source_location || ticket.source_station || ticket.source_airport || ''}</span>
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
-            <span className="font-medium">{ticket.to_location || ticket.to}</span>
+            <span className="font-medium">{ticket.to_location || ticket.destination_location || ticket.destination_station || ticket.destination_airport || ''}</span>
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground">
@@ -162,18 +160,13 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
             <div className="font-semibold">{getSeatInfo()}</div>
           </div>
         </div>
-
-        {/* Additional train information */}
-        {ticket.transport_mode === 'train' && getAdditionalInfo().length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {getAdditionalInfo().map((info, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                {info}
-              </Badge>
-            ))}
+        {/* Show onboarding station for bus tickets if present */}
+        {ticket.transport_mode === 'bus' && ticket.onboarding_station && (
+          <div className="text-xs text-blue-700 font-medium mt-1">
+            Onboarding: {ticket.onboarding_station}
           </div>
         )}
-
+        {/* Additional train/plane information can be added here if needed */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
@@ -186,7 +179,6 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
             </div>
           </div>
         </div>
-
         <div className="flex justify-between items-center pt-2 border-t">
           <div className="flex items-center gap-4">
             <div>
@@ -207,7 +199,6 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
               </Badge>
             )}
           </div>
-          
           {!isOwner && ticket.status === 'available' && (
             <QuickPurchaseButton 
               ticket={ticket}
@@ -215,7 +206,6 @@ const TicketCard = ({ ticket, onBuyClick, isOwner = false }) => {
             />
           )}
         </div>
-
         <div className="text-xs text-muted-foreground">
           PNR: {ticket.pnr_number || ticket.pnr} • Listed {(ticket.created_at || ticket.updated_at) ? format(new Date(ticket.created_at || ticket.updated_at), "MMM dd") : "Recently"}
         </div>

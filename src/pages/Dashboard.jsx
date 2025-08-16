@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bus, LogOut, User, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { PaymentSettings } from "@/components/dashboard/PaymentSettings";
 import { PendingPayouts } from "@/components/dashboard/PendingPayouts";
 import { EmailVerificationStatus } from "@/components/dashboard/EmailVerificationStatus";
 import { PhoneVerificationStatus } from "@/components/dashboard/PhoneVerificationStatus";
+import { syncLocalTicketsWithExternal } from "@/utils/ticketApiClient";
 
 
 const Dashboard = () => {
@@ -36,6 +37,21 @@ const Dashboard = () => {
   } = useDashboardData();
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    (async () => {
+      const deletedTickets = await syncLocalTicketsWithExternal();
+      if (deletedTickets.length > 0) {
+        toast({
+          title: "Sync Complete",
+          description: `${deletedTickets.length} local tickets removed to match external API.`,
+        });
+        console.log('Deleted tickets:', deletedTickets);
+        // Force reload to update ticket list
+        window.location.reload();
+      }
+    })();
+  }, []);
 
   const handleTicketAdded = () => {
     // This will trigger a refresh through the real-time subscription

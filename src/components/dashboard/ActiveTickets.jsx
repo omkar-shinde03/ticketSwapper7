@@ -1,4 +1,6 @@
 
+import React, { useEffect, useState } from "react";
+import { getTickets } from "@/utils/ticketApiClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bus, Clock, CheckCircle, AlertCircle } from "lucide-react";
@@ -17,33 +19,60 @@ import { Bus, Clock, CheckCircle, AlertCircle } from "lucide-react";
  * @property {number} ticket_price
  * @property {number} selling_price
  * @property {string} status
- 
  * @property {string} created_at
  */
 
-/**
- * @typedef {Object} ActiveTicketsProps
- * @property {Ticket[]} tickets
- */
+export const ActiveTickets = () => {
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-export const ActiveTickets = ({ tickets }) => {
-  const activeTickets = tickets.filter(t => t.status === 'available');
+  useEffect(() => {
+    setLoading(true);
+    getTickets()
+      .then((data) => {
+        setTickets(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  const activeTickets = tickets.filter((t) => t.status === "available");
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "available": return "bg-blue-100 text-blue-800";
-      case "sold": return "bg-green-100 text-green-800";
-      case "cancelled": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "available": {
+        return "bg-blue-100 text-blue-800";
+      }
+      case "sold": {
+        return "bg-green-100 text-green-800";
+      }
+      case "cancelled": {
+        return "bg-red-100 text-red-800";
+      }
+      default: {
+        return "bg-gray-100 text-gray-800";
+      }
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "available": return <Clock className="h-3 w-3" />;
-      case "sold": return <CheckCircle className="h-3 w-3" />;
-      case "cancelled": return <AlertCircle className="h-3 w-3" />;
-      default: return null;
+      case "available": {
+        return <Clock className="h-3 w-3" />;
+      }
+      case "sold": {
+        return <CheckCircle className="h-3 w-3" />;
+      }
+      case "cancelled": {
+        return <AlertCircle className="h-3 w-3" />;
+      }
+      default: {
+        return null;
+      }
     }
   };
 
@@ -54,7 +83,11 @@ export const ActiveTickets = ({ tickets }) => {
         <CardDescription>Manage your currently listed tickets</CardDescription>
       </CardHeader>
       <CardContent>
-        {activeTickets.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">Loading...</div>
+        ) : error ? (
+          <div className="text-center py-12 text-red-500">{error}</div>
+        ) : activeTickets.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Bus className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No active tickets</p>

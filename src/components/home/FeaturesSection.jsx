@@ -32,11 +32,11 @@ export const FeaturesSection = () => {
             <p className="text-sm text-muted-foreground">Quick ticket transfer for urgent needs</p>
           </div>
           <div className="text-center group animate-scale-in delay-400">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 via-green-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:shadow-lg group-hover:scale-110">
+            <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:shadow-lg group-hover:scale-110">
               <div className="flex items-center space-x-1">
-                <Bus className="h-4 w-4 text-white" />
-                <Train className="h-4 w-4 text-white" />
-                <Plane className="h-4 w-4 text-white" />
+                <Bus className="h-4 w-4 text-foreground" />
+                <Train className="h-4 w-4 text-foreground" />
+                <Plane className="h-4 w-4 text-foreground" />
               </div>
             </div>
             <h3 className="font-semibold mb-2 text-foreground">Multi-Modal Support</h3>

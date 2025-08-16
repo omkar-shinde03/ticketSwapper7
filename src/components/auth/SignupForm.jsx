@@ -24,6 +24,25 @@ const SignupForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+  const simplePatterns = [
+    /^(.)\1+$/, // repeated single char
+    /^12345678$/, /^password$/, /^qwerty$/, /^11111111$/, /^00000000$/
+  ];
+
+  const getPasswordStrength = (password) => {
+    if (!password) return '';
+    if (simplePatterns.some((pat) => pat.test(password))) return 'Very Weak';
+    if (password.length < 8) return 'Too Short';
+    if (!/[A-Z]/.test(password)) return 'Needs uppercase';
+    if (!/[a-z]/.test(password)) return 'Needs lowercase';
+    if (!/\d/.test(password)) return 'Needs digit';
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) return 'Needs special char';
+    if (strongPasswordRegex.test(password)) return 'Strong';
+    return 'Weak';
+  };
+
   // Auto-check admin checkbox when admin email is entered
   useEffect(() => {
     if (signupData.email === ADMIN_EMAIL) {
@@ -33,9 +52,26 @@ const SignupForm = () => {
     }
   }, [signupData.email]);
 
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState("");
+
   const handleSignup = async (e) => {
     e.preventDefault();
-    
+    setEmailError("");
+    setPasswordError("");
+    // Email validation
+    if (!emailRegex.test(signupData.email)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+    // Password validation (skip for admin)
+    if (!signupData.isAdmin) {
+      if (!strongPasswordRegex.test(signupData.password) || simplePatterns.some((pat) => pat.test(signupData.password))) {
+        setPasswordError("Password must be at least 8 characters, include upper/lowercase, a digit, a special character, and not be a simple pattern.");
+        return;
+      }
+    }
     setIsLoading(true);
 
     try {
@@ -159,10 +195,14 @@ const SignupForm = () => {
             placeholder="Enter your email"
             className="pl-10"
             value={signupData.email}
-            onChange={(e) => setSignupData({...signupData, email: e.target.value})}
+            onChange={(e) => {
+              setSignupData({...signupData, email: e.target.value});
+              setEmailError("");
+            }}
             required
           />
         </div>
+        {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
       </div>
       
       {!signupData.isAdmin && (
@@ -176,10 +216,22 @@ const SignupForm = () => {
               placeholder="Create a password"
               className="pl-10"
               value={signupData.password}
-              onChange={(e) => setSignupData({...signupData, password: e.target.value})}
+              onChange={(e) => {
+                setSignupData({...signupData, password: e.target.value});
+                const strength = getPasswordStrength(e.target.value);
+                setPasswordStrength(strength);
+                setPasswordError("");
+              }}
               required={!signupData.isAdmin}
             />
           </div>
+          {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
+          {!signupData.isAdmin && signupData.password && (
+            <div className="w-full mt-1">
+              <div className={`h-2 rounded ${passwordStrength === 'Strong' ? 'bg-green-500' : passwordStrength === 'Weak' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: passwordStrength === 'Strong' ? '100%' : passwordStrength === 'Weak' ? '60%' : '30%' }} />
+              <p className={`text-xs mt-1 ${passwordStrength === 'Strong' ? 'text-green-600' : passwordStrength === 'Weak' ? 'text-yellow-600' : 'text-red-600'}`}>{passwordStrength}</p>
+            </div>
+          )}
         </div>
       )}
 

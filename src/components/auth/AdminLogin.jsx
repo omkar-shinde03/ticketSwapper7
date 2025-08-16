@@ -17,113 +17,46 @@ export const AdminLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const SUPER_ADMIN_EMAIL = 'omstemper1@gmail.com';
+
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
     try {
-      console.log("Attempting admin login with email:", email);
-      
-      // First try to sign in
+      // Sign in
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+      if (loginError) throw loginError;
 
-      if (loginError && loginError.message === "Invalid login credentials") {
-        console.log("User doesn't exist, creating admin account...");
-        
-        // If login fails, try to create the admin account
-        const { data: signupData, error: signupError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: "Admin",
-              user_type: 'admin'
-            }
-          }
-        });
-
-        if (signupError) {
-          console.error("Signup error:", signupError);
-          throw signupError;
-        }
-
-        console.log("Admin account created:", signupData);
-        
-        // Create admin profile - Admin doesn't need KYC
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: signupData.user.id,
-            email: signupData.user.email,
-            full_name: "Admin",
-            user_type: 'admin',
-            kyc_status: 'verified' // Admin automatically verified
-          });
-
-        if (profileError) {
-          console.error("Error creating admin profile:", profileError);
-          // Continue anyway as profile might already exist
-        }
-
+      // Super admin bypass
+      if (email === SUPER_ADMIN_EMAIL) {
         toast({
-          title: "Admin account created",
-          description: "Please check your email to verify your account, then try logging in again.",
+          title: "Super Admin login successful",
+          description: "Welcome to the admin dashboard.",
         });
-        
+        navigate("/admin");
+        setIsLoading(false);
         return;
-      } else if (loginError) {
-        console.error("Login error:", loginError);
-        throw loginError;
       }
 
-      console.log("Login successful, user:", loginData.user);
-
-      // Check if user is admin
+      // Check if user is admin in profiles
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('user_type')
         .eq('id', loginData.user.id)
         .single();
-
-      console.log("Profile query result:", { profile, profileError });
-
-      if (profileError) {
-        console.error("Profile error:", profileError);
-        // If profile doesn't exist, create admin profile
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: loginData.user.id,
-            email: loginData.user.email,
-            full_name: loginData.user.user_metadata?.full_name || "Admin",
-            user_type: 'admin',
-            kyc_status: 'verified'
-          });
-
-        if (insertError) {
-          console.error("Error creating admin profile:", insertError);
-          await supabase.auth.signOut();
-          throw new Error('Failed to create admin profile');
-        }
-
-        console.log("Admin profile created successfully");
-      } else if (profile?.user_type !== 'admin') {
-        console.log("User is not admin, user_type:", profile?.user_type);
+      if (profileError || profile?.user_type !== 'admin') {
         await supabase.auth.signOut();
         throw new Error('Admin access required');
       }
-
       toast({
         title: "Admin login successful",
         description: "Welcome to the admin dashboard.",
       });
-      
       navigate("/admin");
     } catch (error) {
-      console.error("Admin login failed:", error);
       toast({
         title: "Login failed",
         description: error.message,

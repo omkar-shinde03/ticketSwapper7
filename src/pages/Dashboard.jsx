@@ -94,6 +94,31 @@ const Dashboard = () => {
     );
   }
 
+  // Error handling for missing user or profile
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-red-600 font-semibold">You are not logged in. Please <a href='/auth' className='underline'>log in</a> to access the dashboard.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-red-600 font-semibold">Failed to load your profile. Please try refreshing the page or contact support.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback for tickets/availableTickets
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
+  const safeAvailableTickets = Array.isArray(availableTickets) ? availableTickets : [];
+
   return (
     <RealtimeMessagingProvider currentUserId={user?.id}>
       <div className="min-h-screen bg-gray-50">
@@ -127,12 +152,12 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900">Your Tickets</h3>
-            <p className="text-3xl font-bold text-blue-600">{tickets.length}</p>
+            <p className="text-3xl font-bold text-blue-600">{safeTickets.length}</p>
             <p className="text-sm text-gray-500">Total listed</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900">Available</h3>
-            <p className="text-3xl font-bold text-green-600">{availableTickets.length}</p>
+            <p className="text-3xl font-bold text-green-600">{safeAvailableTickets.length}</p>
             <p className="text-sm text-gray-500">Tickets to buy</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -193,14 +218,14 @@ const Dashboard = () => {
           <TabsContent value="buy" className="space-y-6">
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Available Tickets</h2>
-              {availableTickets.length === 0 ? (
+              {safeAvailableTickets.length === 0 ? (
                 <div className="text-center py-8">
                   <Bus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No tickets available at the moment</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {availableTickets.map((ticket) => (
+                  {safeAvailableTickets.map((ticket) => (
                     <div key={ticket.id} className="space-y-3">
                       <TicketCard
                         ticket={ticket}
@@ -224,14 +249,14 @@ const Dashboard = () => {
           <TabsContent value="my-tickets" className="space-y-6">
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Your Listed Tickets</h2>
-              {tickets.length === 0 ? (
+              {safeTickets.length === 0 ? (
                 <div className="text-center py-8">
                   <Bus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">You haven't listed any tickets yet</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {tickets.map((ticket) => (
+                  {safeTickets.map((ticket) => (
                     <TicketCard
                       key={ticket.id}
                       ticket={ticket}

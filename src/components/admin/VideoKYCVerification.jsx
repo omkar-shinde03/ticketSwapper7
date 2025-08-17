@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { joinSignalingChannel, sendSignal, leaveSignalingChannel } from '@/utils/webrtcSignaling';
+import { generateJitsiKycLink } from '@/utils/jitsiUtils';
 
 export const VideoKYCVerification = ({ users, onUpdate }) => {
   const [activeCall, setActiveCall] = useState(null);
@@ -389,6 +390,21 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank');
       }
+    }
+  };
+
+  const handleSendVideoCallLink = async (user) => {
+    const link = generateJitsiKycLink();
+    const subject = 'Your Video KYC Call Link';
+    const body = `Dear ${user.full_name || user.email},\n\nYour video KYC verification call is ready. Please join the call at your scheduled time using the link below:\n\n${link}\n\nThank you,\nTicketSwapper Team`;
+    try {
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: { to: user.email, subject, body }
+      });
+      if (error) throw error;
+      toast({ title: 'Video Call Link Sent', description: `Link sent to ${user.email}` });
+    } catch (err) {
+      toast({ title: 'Failed to Send Email', description: err.message, variant: 'destructive' });
     }
   };
 

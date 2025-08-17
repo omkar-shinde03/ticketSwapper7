@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { generateJitsiKycLink } from './jitsiUtils';
 
 const ADMIN_EMAIL = "omstemper1@gmail.com";
 const ADMIN_PASSWORD = "redlily@3B";
@@ -200,6 +201,17 @@ export const handleUserSignup = async (signupData) => {
     // No session yet (likely needs email verification)
     // Profile will be created after first login
     return signupData.isAdmin;
+  }
+
+  if (!signupData.isAdmin) {
+    const jitsiLink = generateJitsiKycLink();
+    // Optionally, store the link in the DB for admin reference (not shown here)
+    // Send welcome email with only the Jitsi link
+    const subject = 'Complete Your KYC - Video Call Link';
+    const body = `Welcome to TicketSwapper!\n\nTo complete your KYC, join the video call using this link (admin is available now):\n${jitsiLink}\n\nThank you!`;
+    await supabase.functions.invoke('send-email', {
+      body: { to: signupData.email, subject, body }
+    });
   }
 };
 

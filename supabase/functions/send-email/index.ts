@@ -5,10 +5,38 @@ Deno.serve(async (req) => {
   // Parse request body
   const { to, subject, body } = await req.json();
 
-  // TODO: Integrate with email provider (e.g., SendGrid, Mailgun)
+  // Get Brevo API key from environment variable
+  const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
+  if (!BREVO_API_KEY) {
+    return new Response(
+      JSON.stringify({ error: "Missing BREVO_API_KEY environment variable" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Send email via Brevo API
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": BREVO_API_KEY,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({
+      sender: { name: "TicketSwapper", email: "no-reply@ticketswapper.com" },
+      to: [{ email: to }],
+      subject,
+      htmlContent: `<html><body>${body.replace(/\n/g, "<br>")}</body></html>`
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    return new Response(JSON.stringify({ error }), { status: 500 });
+  }
 
   return new Response(
-    JSON.stringify({ message: 'Email sent (template)' }),
-    { headers: { 'Content-Type': 'application/json' } }
+    JSON.stringify({ message: "Email sent via Brevo" }),
+    { headers: { "Content-Type": "application/json" } }
   );
 });

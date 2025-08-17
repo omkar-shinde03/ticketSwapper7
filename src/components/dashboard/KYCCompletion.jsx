@@ -25,6 +25,9 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
   const { toast } = useToast();
   // Add a state to track if a document is already uploaded
   const [documentExists, setDocumentExists] = useState(false);
+  const [videoKYCRequested, setVideoKYCRequested] = useState(false);
+  const [videoKYCRequestId, setVideoKYCRequestId] = useState(null);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   // Check if user has already uploaded a document on mount
   useEffect(() => {
@@ -40,6 +43,54 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
     }
     checkDocument();
   }, [profile?.id]);
+
+  // Check if user already has a pending/in-progress video KYC request
+  useEffect(() => {
+    async function checkVideoKYCRequest() {
+      if (!profile?.id) return;
+      const { data, error } = await supabase
+        .from('video_calls')
+        .select('id, status')
+        .eq('user_id', profile.id)
+        .in('status', ['waiting_admin', 'admin_connected', 'in_call'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (data && !error) {
+        setVideoKYCRequested(true);
+        setVideoKYCRequestId(data.id);
+      } else {
+        setVideoKYCRequested(false);
+        setVideoKYCRequestId(null);
+      }
+    }
+    checkVideoKYCRequest();
+  }, [profile?.id]);
+
+  // Handler for requesting video KYC
+  const handleRequestVideoKYC = async () => {
+    setIsRequesting(true);
+    try {
+      const { error, data } = await supabase
+        .from('video_calls')
+        .insert({
+          user_id: profile.id,
+          status: 'waiting_admin',
+          call_type: 'kyc_verification'
+        })
+        .select('*')
+        .single();
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        setVideoKYCRequested(true);
+        setVideoKYCRequestId(data.id);
+        toast({ title: 'Request Sent', description: 'Waiting for admin to start the call.' });
+      }
+    } finally {
+      setIsRequesting(false);
+    }
+  };
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -299,9 +350,15 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
             <p className="text-sm text-blue-700 mb-4">
               To complete your KYC, please request video verification. An admin will contact you for a video call.
             </p>
-            <Badge variant="outline" className="text-orange-700 bg-orange-100">
-              Waiting for admin to start the call
-            </Badge>
+            {!videoKYCRequested ? (
+              <Button onClick={handleRequestVideoKYC} disabled={isRequesting} className="bg-blue-600 hover:bg-blue-700">
+                {isRequesting ? 'Requesting...' : 'Request Video KYC'}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="text-orange-700 bg-orange-100 mt-2">
+                Waiting for admin to start the call
+              </Badge>
+            )}
           </div>
         )}
 

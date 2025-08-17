@@ -112,7 +112,7 @@ export const KYCVerification = ({ users, onUpdate }) => {
                   <Button onClick={() => handleVerifyKYC(user)} disabled={user.kyc_status === 'verified'}>
                     Verify
                   </Button>
-                  <Button variant="destructive" onClick={() => handleRejectKYC(user)} disabled={user.kyc_status === 'rejected'}>
+                  <Button variant="destructive" onClick={() => handleRejectKYC(user)} disabled={user.kyc_status === 'verified' || user.kyc_status === 'rejected'}>
                     Reject
                   </Button>
                 </div>

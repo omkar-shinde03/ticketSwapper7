@@ -54,16 +54,25 @@ const AdminDashboard = () => {
     checkAdminAuth();
   }, []);
 
+  // Real-time user subscription and loading
+  useEffect(() => {
+    // Load users initially
+    loadUsers();
+    // Subscribe to real-time changes in the profiles table
+    const usersChannel = supabase
+      .channel('users_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+        loadUsers();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(usersChannel);
+    };
+  }, []);
+
   useEffect(() => {
     if (user?.id) {
       // Set up real-time subscriptions
-      const usersChannel = supabase
-        .channel('users_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
-          loadUsers();
-        })
-        .subscribe();
-
       const ticketsChannel = supabase
         .channel('admin_tickets_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
@@ -72,7 +81,6 @@ const AdminDashboard = () => {
         .subscribe();
 
       return () => {
-        supabase.removeChannel(usersChannel);
         supabase.removeChannel(ticketsChannel);
       };
     }
@@ -115,19 +123,20 @@ const AdminDashboard = () => {
     }
   };
 
+  // Update loadUsers to always fetch all users and exclude admin
   const loadUsers = async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) {
         console.error("Error loading users:", error);
         return;
       }
-
-      setUsers(data || []);
+      // Exclude admin from user list and count
+      const filtered = (data || []).filter(u => u.user_type !== 'admin');
+      setUsers(filtered);
     } catch (error) {
       console.error("Error loading users:", error);
     }

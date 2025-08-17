@@ -89,7 +89,45 @@ const VideoKYCSystem = () => {
             if (payload.new.status === 'admin_connected' || payload.new.status === 'in_call') {
               setShowVideoDialog(true);
               setCallStatus('connecting');
-              // Start WebRTC as answerer (existing logic)
+              // Start WebRTC as answerer
+              if (!peerConnection) {
+                const pc = createPeerConnection();
+                setPeerConnection(pc);
+                // Add local stream
+                if (localStreamRef.current) {
+                  localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
+                }
+                joinSignalingChannel(callIdRef, async (msg) => {
+                  if (msg.type === 'offer') {
+                    console.log('[User] Received offer');
+                    await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    sendSignal(callIdRef, { type: 'answer', answer });
+                    console.log('[User] Sent answer');
+                  } else if (msg.type === 'ice-candidate' && msg.candidate) {
+                    console.log('[User] Received ICE candidate');
+                    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+                  }
+                });
+                pc.onconnectionstatechange = () => {
+                  console.log('[User] Connection state:', pc.connectionState);
+                  if (pc.connectionState === 'connected') {
+                    setCallStatus('connected');
+                    setAdminConnected(true);
+                    toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
+                  }
+                  if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+                    endVideoCall();
+                  }
+                };
+                pc.ontrack = (event) => {
+                  if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = event.streams[0];
+                    console.log('[User] Remote stream set');
+                  }
+                };
+              }
             }
             if (payload.new.status === 'completed' || payload.new.status === 'rejected') {
               setShowVideoDialog(false);
@@ -132,6 +170,7 @@ const VideoKYCSystem = () => {
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
       ],
     });
     pc.onicecandidate = (event) => {

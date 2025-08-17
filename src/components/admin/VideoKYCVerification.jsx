@@ -91,6 +91,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
       ],
     });
     pc.onicecandidate = (event) => {
@@ -129,20 +130,34 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       setCallId(req.id);
       joinSignalingChannel(req.id, async (msg) => {
         if (msg.type === 'answer') {
+          console.log('[Admin] Received answer');
           await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
           toast({ title: 'User Connected', description: 'The user has joined the call.' });
         } else if (msg.type === 'ice-candidate' && msg.candidate) {
+          console.log('[Admin] Received ICE candidate');
           try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
         }
       });
       pc.onicecandidate = (event) => {
         if (event.candidate && req.id) {
           sendSignal(req.id, { type: 'ice-candidate', candidate: event.candidate });
+          console.log('[Admin] Sent ICE candidate');
         }
       };
       pc.ontrack = (event) => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
+          console.log('[Admin] Remote stream set');
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        console.log('[Admin] Connection state:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          setStatusMessage('Admin Connected');
+          setAdminConnected(true);
+        }
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+          endVideoCall();
         }
       };
       // 3. Create offer and send to user

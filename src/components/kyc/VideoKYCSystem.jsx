@@ -36,6 +36,7 @@ const VideoKYCSystem = () => {
   const [isInCall, setIsInCall] = useState(false);
   const [userCall, setUserCall] = useState(null);
   const [canRequest, setCanRequest] = useState(false);
+  const [showJoinPrompt, setShowJoinPrompt] = useState(false);
 
   // Get current user ID and check for existing call
   useEffect(() => {
@@ -108,63 +109,13 @@ const VideoKYCSystem = () => {
             filter: `id=eq.${callIdRef}`
           }, async (payload) => {
             setUserCall(payload.new);
-            // Only when admin starts the call, show dialog and prompt for camera
+            // When admin starts the call, show join prompt
             if (payload.new.status === 'admin_connected') {
-              setShowVideoDialog(true);
-              setCallStatus('connecting');
-              // Prompt for camera/mic and join WebRTC here
-              try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                localStreamRef.current = stream;
-                if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-                // Start WebRTC as answerer (existing logic)
-                if (!peerConnection) {
-                  const pc = createPeerConnection();
-                  setPeerConnection(pc);
-                  // Add local stream
-                  if (localStreamRef.current) {
-                    localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
-                  }
-                  joinSignalingChannel(callIdRef, async (msg) => {
-                    console.log('[User] Signaling message received:', msg);
-                    if (msg.type === 'offer') {
-                      console.log('[User] Received offer');
-                      await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
-                      const answer = await pc.createAnswer();
-                      await pc.setLocalDescription(answer);
-                      sendSignal(callIdRef, { type: 'answer', answer });
-                      console.log('[User] Sent answer');
-                    } else if (msg.type === 'ice-candidate' && msg.candidate) {
-                      console.log('[User] Received ICE candidate:', msg.candidate);
-                      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
-                    }
-                  });
-                  pc.onconnectionstatechange = () => {
-                    console.log('[User] Connection state:', pc.connectionState);
-                    if (pc.connectionState === 'connected') {
-                      setCallStatus('connected');
-                      setAdminConnected(true);
-                      toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
-                    }
-                    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-                      endVideoCall();
-                    }
-                  };
-                  pc.ontrack = (event) => {
-                    console.log('[User] ontrack event:', event);
-                    if (remoteVideoRef.current) {
-                      remoteVideoRef.current.srcObject = event.streams[0];
-                      console.log('[User] Remote stream set');
-                    }
-                  };
-                }
-              } catch (err) {
-                toast({ title: 'Camera Error', description: err.message, variant: 'destructive' });
-                return;
-              }
+              setShowJoinPrompt(true);
             }
             if (payload.new.status === 'completed' || payload.new.status === 'rejected') {
               setShowVideoDialog(false);
+              setShowJoinPrompt(false);
               setCallStatus('idle');
               setCanRequest(true);
             }
@@ -266,15 +217,69 @@ const VideoKYCSystem = () => {
     }
   };
 
+  // Handler for accepting the call
   const handleAcceptCall = async () => {
-    if (!incomingCall) return;
-    await supabase
-      .from('video_calls')
-      .update({ status: 'in_call' })
-      .eq('id', incomingCall.id);
-    setShowPickCallDialog(false);
-    // Start WebRTC connection here (reuse startVideoCall logic)
-    startVideoCall({ id: incomingCall.user_id });
+    setShowJoinPrompt(false);
+    setShowVideoDialog(true);
+    setCallStatus('connecting');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      // Start WebRTC as answerer (existing logic)
+      if (!peerConnection) {
+        const pc = createPeerConnection();
+        setPeerConnection(pc);
+        // Add local stream
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
+        }
+        joinSignalingChannel(callId, async (msg) => {
+          console.log('[User] Signaling message received:', msg);
+          if (msg.type === 'offer') {
+            console.log('[User] Received offer');
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            sendSignal(callId, { type: 'answer', answer });
+            console.log('[User] Sent answer');
+          } else if (msg.type === 'ice-candidate' && msg.candidate) {
+            console.log('[User] Received ICE candidate:', msg.candidate);
+            try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+          }
+        });
+        pc.onconnectionstatechange = () => {
+          console.log('[User] Connection state:', pc.connectionState);
+          if (pc.connectionState === 'connected') {
+            setCallStatus('connected');
+            setAdminConnected(true);
+            toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
+          }
+          if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+            endVideoCall();
+          }
+        };
+        pc.ontrack = (event) => {
+          console.log('[User] ontrack event:', event);
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            console.log('[User] Remote stream set');
+          }
+        };
+      }
+      // Optionally update status to 'in_call'
+      await supabase.from('video_calls').update({ status: 'in_call' }).eq('id', userCall.id);
+    } catch (err) {
+      toast({ title: 'Camera Error', description: err.message, variant: 'destructive' });
+      setShowVideoDialog(false);
+    }
+  };
+
+  // Handler for declining the call
+  const handleDeclineCall = async () => {
+    setShowJoinPrompt(false);
+    await supabase.from('video_calls').update({ status: 'rejected' }).eq('id', userCall.id);
+    toast({ title: 'Call declined', description: 'You declined the video KYC call.' });
   };
 
   const handleRejectCall = async () => {
@@ -522,112 +527,13 @@ const VideoKYCSystem = () => {
             Admin has connected. Please show your Aadhaar card to the camera for verification.
           </div>
         )}
-        {/* Video Call Dialog */}
+        {/* Video Call Dialog only opens when admin starts the call */}
         <Dialog open={showVideoDialog} onOpenChange={() => endVideoCall()}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Video KYC Verification - {activeCall?.full_name}</DialogTitle>
+              <DialogTitle>Video KYC Verification</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              {/* Video Streams */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    muted
-                    className="w-full h-64 bg-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-label="Your video preview"
-                  />
-                  <Badge className="absolute top-2 left-2">You</Badge>
-                </div>
-                <div className="relative">
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    className="w-full h-64 bg-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-label="Admin video preview"
-                  />
-                  <Badge className="absolute top-2 left-2">Admin</Badge>
-                </div>
-              </div>
-              {/* Call Controls */}
-              <div className="flex flex-wrap justify-center gap-4 pt-4">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className={`rounded-full h-12 w-12 flex items-center justify-center ${audioEnabled ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      aria-label={audioEnabled ? 'Mute microphone' : 'Unmute microphone'}
-                      tabIndex={0}
-                      onClick={toggleAudio}
-                    >
-                      {audioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{audioEnabled ? 'Mute Microphone' : 'Unmute Microphone'}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className={`rounded-full h-12 w-12 flex items-center justify-center ${videoEnabled ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      aria-label={videoEnabled ? 'Turn off video' : 'Turn on video'}
-                      tabIndex={0}
-                      onClick={toggleVideo}
-                    >
-                      {videoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{videoEnabled ? 'Turn Off Video' : 'Turn On Video'}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="rounded-full h-12 w-12 flex items-center justify-center bg-red-100 text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                      aria-label="End call"
-                      tabIndex={0}
-                      onClick={endVideoCall}
-                    >
-                      <Phone className="h-5 w-5 rotate-45" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>End Call</TooltipContent>
-                </Tooltip>
-              </div>
-              {/* Verification Notes */}
-              <div>
-                <label className="text-sm font-medium">Verification Notes</label>
-                <Textarea
-                  placeholder="Add notes about the verification process..."
-                  value={verificationNotes}
-                  onChange={(e) => setVerificationNotes(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              {/* Verification Actions */}
-              <div className="flex gap-4">
-                <Button
-                  onClick={approveKYC}
-                  className="flex-1"
-                  disabled={!verificationNotes.trim()}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve KYC
-                </Button>
-                <Button
-                  onClick={rejectKYC}
-                  variant="destructive"
-                  className="flex-1"
-                  disabled={!verificationNotes.trim()}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Reject KYC
-                </Button>
-              </div>
-            </div>
+            {/* Video call UI here, only shown when admin starts the call */}
           </DialogContent>
         </Dialog>
         {showPickCallDialog && (
@@ -644,6 +550,19 @@ const VideoKYCSystem = () => {
             </DialogContent>
           </Dialog>
         )}
+        {/* Add join prompt dialog */}
+        <Dialog open={showJoinPrompt} onOpenChange={setShowJoinPrompt}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Incoming Video KYC Call</DialogTitle>
+            </DialogHeader>
+            <div className="mb-4">Admin is calling you for Video KYC. Would you like to join?</div>
+            <div className="flex gap-4 mt-4">
+              <Button onClick={handleAcceptCall}>Accept</Button>
+              <Button variant="outline" onClick={handleDeclineCall}>Decline</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

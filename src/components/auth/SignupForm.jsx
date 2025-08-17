@@ -200,9 +200,10 @@ const SignupForm = () => {
               setEmailError("");
             }}
             required
+            pattern={emailRegex.source}
           />
         </div>
-        {emailError && <p className="text-xs text-red-600 mt-1">{emailError}</p>}
+        {emailError && <p className="text-red-600 text-xs mt-1">{emailError}</p>}
       </div>
       
       {!signupData.isAdmin && (

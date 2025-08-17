@@ -33,6 +33,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
   const [showPickCallDialog, setShowPickCallDialog] = useState(false);
   const { data: user } = supabase.auth.getUser();
   const [pendingVideoKYCRequests, setPendingVideoKYCRequests] = useState([]);
+  const [adminConnected, setAdminConnected] = useState(false);
 
   useEffect(() => {
     // Filter users with pending KYC
@@ -188,8 +189,39 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
         .update({ status: 'in_call' })
         .eq('id', req.id);
       setShowPickCallDialog(false);
-      // Start WebRTC connection for admin
-      startVideoCall({ id: req.user_id });
+      // Start WebRTC connection for admin as offerer
+      setCallId(req.id);
+      setShowVideoDialog(true);
+      // Get admin media
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      const pc = createPeerConnection();
+      setPeerConnection(pc);
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      joinSignalingChannel(req.id, async (msg) => {
+        if (msg.type === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
+          setStatusMessage('User connected. In Call.');
+          toast({ title: 'User Connected', description: 'The user has joined the call.' });
+        } else if (msg.type === 'ice-candidate' && msg.candidate) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+        }
+      });
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          setStatusMessage('Admin Connected');
+          setAdminConnected(true);
+        }
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          endVideoCall();
+        }
+      };
+      // Create offer and send to user
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendSignal(req.id, { type: 'offer', offer });
+      sendSignal(req.id, { type: 'admin-joined' });
     } catch (error) {
       toast({ title: 'Error', description: error.message || 'Failed to start video call', variant: 'destructive' });
     } finally {
@@ -221,6 +253,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     setVerificationNotes("");
     setShowPickCallDialog(false);
     setIncomingCall(null);
+    setAdminConnected(false);
   };
 
   const approveKYC = async () => {

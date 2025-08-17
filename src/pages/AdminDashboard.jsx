@@ -11,6 +11,7 @@ import { TicketManagement } from "@/components/admin/TicketManagement";
 import { KYCVerification } from "@/components/admin/KYCVerification";
 import { VideoKYCVerification } from "@/components/admin/VideoKYCVerification";
 import { DocumentsManagement } from "@/components/admin/DocumentsManagement";
+import { Button } from "@/components/ui/button";
 
 /**
  * @typedef {Object} Profile
@@ -54,16 +55,13 @@ const AdminDashboard = () => {
     checkAdminAuth();
   }, []);
 
-  // Real-time user subscription and loading
+  // Initial fetch
   useEffect(() => {
-    // Load users initially
     loadUsers();
-    // Subscribe to real-time changes in the profiles table
+    // Real-time subscription
     const usersChannel = supabase
       .channel('users_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
-        loadUsers();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers)
       .subscribe();
     return () => {
       supabase.removeChannel(usersChannel);
@@ -196,6 +194,7 @@ const AdminDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AdminStats users={users} tickets={tickets} />
+        <Button onClick={loadUsers} className="mb-4">Refresh Users</Button>
 
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>

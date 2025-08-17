@@ -25,14 +25,14 @@ export const PaymentSettings = () => {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('upi_id, phone_number')
+        .select('upi_id, phone')
         .eq('id', user.id)
         .single();
 
       if (profile) {
         setUpiId(profile.upi_id || '');
-        setPhoneNumber(profile.phone_number || '');
-        setIsSaved(!!(profile.upi_id || profile.phone_number));
+        setPhoneNumber(profile.phone || '');
+        setIsSaved(!!(profile.upi_id || profile.phone));
       }
     } catch (error) {
       console.error('Error loading payment details:', error);
@@ -59,7 +59,7 @@ export const PaymentSettings = () => {
         .from('profiles')
         .update({
           upi_id: upiId || null,
-          phone_number: phoneNumber || null,
+          phone: phoneNumber || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);

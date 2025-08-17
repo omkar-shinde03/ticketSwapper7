@@ -209,24 +209,12 @@ const EmailVerification = ({ email, onVerified, onBack }) => {
 
       <form onSubmit={handleVerifyCode} className="space-y-4">
         {currentStep === 'email' ? (
-          <div className="space-y-2">
-            <Label htmlFor="email-code">Email Verification Code</Label>
-            <Input
-              id="email-code"
-              type="text"
-              placeholder="Enter 6-digit code"
-              className="text-center text-lg tracking-widest"
-              value={verificationCodes.emailCode}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, ''); // Only allow digits
-                if (value.length <= 6) {
-                  setVerificationCodes(prev => ({ ...prev, emailCode: value }));
-                }
-              }}
-              maxLength="6"
-              required
-              disabled={verificationStatus?.emailVerified}
-            />
+          <div className="space-y-2 text-center text-gray-600">
+            <p>
+              Please check your email for a verification link.<br />
+              <span className="font-medium">{email}</span>
+            </p>
+            <p className="text-sm mt-2">Click the link in your email to verify your account.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -249,23 +237,23 @@ const EmailVerification = ({ email, onVerified, onBack }) => {
             />
           </div>
         )}
-
-        <Button 
-          type="submit" 
-          className="w-full" 
-          disabled={
-            isLoading || 
-            (currentStep === 'email' ? verificationCodes.emailCode.length !== 6 : verificationCodes.phoneOtp.length !== 6) || 
-            isExpired || 
-            (currentStep === 'email' ? verificationStatus?.emailVerified : verificationStatus?.phoneVerified)
-          }
-          size="lg"
-        >
-          {isLoading ? "Verifying..." : 
-           (currentStep === 'email' ? verificationStatus?.emailVerified : verificationStatus?.phoneVerified) ? "Already Verified" :
-           isExpired ? "Code Expired" : 
-           currentStep === 'email' ? "Verify Email" : "Verify Phone"}
-        </Button>
+        {currentStep === 'phone' && (
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={
+              isLoading || 
+              verificationCodes.phoneOtp.length !== 6 || 
+              isExpired || 
+              verificationStatus?.phoneVerified
+            }
+            size="lg"
+          >
+            {isLoading ? "Verifying..." : 
+             verificationStatus?.phoneVerified ? "Already Verified" :
+             isExpired ? "Code Expired" : "Verify Phone"}
+          </Button>
+        )}
       </form>
 
       <div className="text-center space-y-4">

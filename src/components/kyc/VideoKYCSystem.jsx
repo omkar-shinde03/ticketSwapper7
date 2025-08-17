@@ -34,68 +34,78 @@ const VideoKYCSystem = () => {
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [uploadStep, setUploadStep] = useState('verify');
   const [isInCall, setIsInCall] = useState(false);
+  const [userCall, setUserCall] = useState(null);
+  const [canRequest, setCanRequest] = useState(false);
 
-  // Get current user ID on mount
+  // Get current user ID and check for existing call
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
       setCurrentUserId(data?.user?.id || null);
+      if (data?.user?.id) {
+        // Check for existing call
+        const { data: calls } = await supabase
+          .from('video_calls')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .in('status', ['waiting_admin', 'admin_connected', 'in_call'])
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (calls && calls.length > 0) {
+          setUserCall(calls[0]);
+          setCanRequest(false);
+        } else {
+          setCanRequest(true);
+        }
+      }
     })();
   }, []);
 
-  // Real-time subscription for incoming calls (user side)
+  // Real-time subscription for user's latest call
   useEffect(() => {
     if (!currentUserId) return;
-    const channel = supabase
-      .channel('video_calls_realtime_user_' + currentUserId)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'video_calls',
-        filter: `user_id=eq.${currentUserId}`
-      }, async (payload) => {
-        if (payload.new.status === 'in_call') {
-          // Admin picked the call, join signaling and start WebRTC as answerer
-          setCallId(payload.new.id);
-          setShowVideoDialog(true);
-          setCallStatus('connecting');
-          // Get user media if not already
-          if (!localStreamRef.current) {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current = stream;
-            if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-          }
-          // Start WebRTC as answerer
-          const pc = createPeerConnection();
-          setPeerConnection(pc);
-          localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
-          joinSignalingChannel(payload.new.id, async (msg) => {
-            if (msg.type === 'offer') {
-              await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              sendSignal(payload.new.id, { type: 'answer', answer });
-            } else if (msg.type === 'ice-candidate' && msg.candidate) {
-              try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+    let callChannel;
+    let callIdRef = null;
+    const fetchAndSubscribe = async () => {
+      const { data: calls } = await supabase
+        .from('video_calls')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (calls && calls.length > 0) {
+        callIdRef = calls[0].id;
+        setUserCall(calls[0]);
+        setCanRequest(false);
+        callChannel = supabase
+          .channel('video_call_' + callIdRef)
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'video_calls',
+            filter: `id=eq.${callIdRef}`
+          }, async (payload) => {
+            setUserCall(payload.new);
+            if (payload.new.status === 'admin_connected' || payload.new.status === 'in_call') {
+              setShowVideoDialog(true);
+              setCallStatus('connecting');
+              // Start WebRTC as answerer (existing logic)
             }
-          });
-          pc.onconnectionstatechange = () => {
-            if (pc.connectionState === 'connected') {
-              setCallStatus('connected');
-              setAdminConnected(true);
-              toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
+            if (payload.new.status === 'completed' || payload.new.status === 'rejected') {
+              setShowVideoDialog(false);
+              setCallStatus('idle');
+              setCanRequest(true);
             }
-            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-              endVideoCall();
-            }
-          };
-        }
-        if (payload.new.status === 'completed') {
-          endVideoCall();
-        }
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
+          })
+          .subscribe();
+      } else {
+        setCanRequest(true);
+      }
+    };
+    fetchAndSubscribe();
+    return () => {
+      if (callChannel) supabase.removeChannel(callChannel);
+    };
   }, [currentUserId]);
 
   useEffect(() => {
@@ -157,7 +167,7 @@ const VideoKYCSystem = () => {
           call_type: 'kyc_verification'
         });
       if (error) {
-        console.error('Error creating video call record:', error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
       }
     } catch (error) {
       toast({
@@ -335,6 +345,28 @@ const VideoKYCSystem = () => {
   // Only show KYC complete if call was actually connected
   const showKYCComplete = callStatus === 'in_call' && !activeCall;
 
+  // User requests a video call
+  const handleRequestVideoKYC = async () => {
+    if (!currentUserId) return;
+    setCanRequest(false);
+    const { error, data } = await supabase
+      .from('video_calls')
+      .insert({
+        user_id: currentUserId,
+        status: 'waiting_admin',
+        call_type: 'kyc_verification'
+      })
+      .select('*')
+      .single();
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setCanRequest(true);
+    } else {
+      setUserCall(data);
+      setCanRequest(false);
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -347,6 +379,19 @@ const VideoKYCSystem = () => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
+              {/* UI: Only show request button if canRequest is true */}
+              {canRequest && (
+                <Button onClick={handleRequestVideoKYC} className="mb-4">Request Video KYC</Button>
+              )}
+              {userCall && (
+                <div className="mb-4 p-2 rounded bg-blue-50 text-blue-800 text-center">
+                  {userCall.status === 'waiting_admin' && 'Waiting for admin to start the call...'}
+                  {userCall.status === 'admin_connected' && 'Admin is ready. Please join the call.'}
+                  {userCall.status === 'in_call' && 'In call with admin.'}
+                  {userCall.status === 'completed' && 'Video KYC completed.'}
+                  {userCall.status === 'rejected' && 'Video KYC request was rejected.'}
+                </div>
+              )}
               {pendingUsers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No pending KYC verifications

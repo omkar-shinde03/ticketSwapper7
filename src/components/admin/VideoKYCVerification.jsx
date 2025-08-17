@@ -73,13 +73,13 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     async function fetchPendingVideoKYC() {
       const { data, error } = await supabase
         .from('video_calls')
-        .select('id, user_id, status, created_at, profiles: user_id (full_name, email, phone, kyc_status)')
+        .select('id, user_id, status, created_at, profiles:user_id(full_name, email, phone, kyc_status)')
         .eq('status', 'waiting_admin')
         .order('created_at', { ascending: false });
       if (!error) setPendingVideoKYCRequests(data || []);
     }
     fetchPendingVideoKYC();
-    // Optionally, subscribe to real-time changes in video_calls
+    // Subscribe to real-time changes in video_calls
     const channel = supabase
       .channel('video_calls_pending_kyc')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'video_calls' }, fetchPendingVideoKYC)
@@ -106,9 +106,10 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     return pc;
   };
 
-  const startVideoCall = async (user) => {
+  // Admin starts a video call
+  const handleStartCall = async (req) => {
     setCallLoading(true);
-    setActiveCall(user);
+    setActiveCall(req);
     setShowVideoDialog(true);
     try {
       // 1. Get admin media
@@ -117,60 +118,42 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      // 2. Find or create the user's waiting video call record
-      let callData, callError;
-      const { data, error } = await supabase
-        .from('video_calls')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'waiting_admin')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      callData = data;
-      callError = error;
-      if (callError || !callData) {
-        // Create a new video_calls record if not found
-        const { data: newCall, error: newCallError } = await supabase
-          .from('video_calls')
-          .insert({ user_id: user.id, status: 'waiting_admin', call_type: 'kyc_verification' })
-          .select('id')
-          .single();
-        if (newCallError || !newCall) throw new Error('Failed to create video call record');
-        callData = newCall;
-      }
-      setCallId(callData.id);
-      // 3. Set up signaling
-      const pc = createPeerConnection();
+      // 2. Set up signaling
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+        ],
+      });
       setPeerConnection(pc);
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
-      joinSignalingChannel(callData.id, async (msg) => {
+      setCallId(req.id);
+      joinSignalingChannel(req.id, async (msg) => {
         if (msg.type === 'answer') {
-          setStatusMessage('User connected. In Call.');
           await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
           toast({ title: 'User Connected', description: 'The user has joined the call.' });
         } else if (msg.type === 'ice-candidate' && msg.candidate) {
           try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
         }
       });
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-          setDisconnected(true);
-          setStatusMessage('User disconnected. Call ended.');
-          toast({ title: 'Call Ended', description: 'The user has left the call.' });
+      pc.onicecandidate = (event) => {
+        if (event.candidate && req.id) {
+          sendSignal(req.id, { type: 'ice-candidate', candidate: event.candidate });
         }
       };
-      // 4. Create offer and send to user
+      pc.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+      // 3. Create offer and send to user
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      sendSignal(callData.id, { type: 'offer', offer });
-      // 5. Notify user that admin joined
-      sendSignal(callData.id, { type: 'admin-joined' });
-      // 6. Update video_calls status
+      sendSignal(req.id, { type: 'offer', offer });
+      // 4. Update video_calls status
       await supabase
         .from('video_calls')
-        .update({ status: 'admin_connected', admin_id: (await supabase.auth.getUser()).data.user.id })
-        .eq('id', callData.id);
+        .update({ status: 'admin_connected' })
+        .eq('id', req.id);
       toast({ title: 'Waiting for user to answer...', description: 'Please keep this window open.' });
     } catch (error) {
       toast({ title: 'Error', description: error.message || 'Failed to start video call', variant: 'destructive' });
@@ -189,7 +172,6 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
         .update({ status: 'in_call' })
         .eq('id', req.id);
       setShowPickCallDialog(false);
-      // Start WebRTC connection for admin as offerer
       setCallId(req.id);
       setShowVideoDialog(true);
       // Get admin media
@@ -390,9 +372,9 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* UI: List all pending video KYC requests */}
               {pendingVideoKYCRequests.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <p className="text-gray-500">No pending KYC verifications</p>
                 </div>
               ) : (
@@ -406,15 +388,13 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
                         <div>
                           <h4 className="font-medium">{req.profiles?.full_name || req.profiles?.email}</h4>
                           <p className="text-sm text-gray-500">{req.profiles?.phone || 'No phone'}</p>
-                          <Badge variant="outline" className={req.profiles?.kyc_status === 'pending' ? 'text-orange-700 bg-orange-100' : 'text-gray-700 bg-gray-100'}>
-                            {req.profiles?.kyc_status === 'pending' ? 'Pending Review' : 'Not Started'}
-                          </Badge>
+                          <Badge variant="outline" className="text-orange-700 bg-orange-100">Pending Review</Badge>
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={() => handleAcceptCall(req)} disabled={callLoading}>
+                        <Button onClick={() => handleStartCall(req)} disabled={callLoading}>
                           <Video className="h-4 w-4 mr-1" />
-                          Pick Call
+                          Start Call
                         </Button>
                       </div>
                     </div>

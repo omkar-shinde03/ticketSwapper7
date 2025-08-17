@@ -24,7 +24,7 @@ const SignupForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
   const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
   const simplePatterns = [
     /^(.)\1+$/, // repeated single char
@@ -200,7 +200,7 @@ const SignupForm = () => {
               setEmailError("");
             }}
             required
-            pattern={emailRegex.source}
+            pattern={"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\\.[a-zA-Z]{2,}$"}
           />
         </div>
         {emailError && <p className="text-red-600 text-xs mt-1">{emailError}</p>}

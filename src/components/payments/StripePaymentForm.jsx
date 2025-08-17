@@ -12,7 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader, CreditCard, Shield } from 'lucide-react';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+if (!STRIPE_PUBLISHABLE_KEY) {
+  console.error('Stripe publishable key is missing. Please set VITE_STRIPE_PUBLISHABLE_KEY in your environment variables.');
+}
+const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
 
 const CheckoutForm = ({ ticket, onSuccess, onCancel }) => {
   const stripe = useStripe();
@@ -149,6 +153,13 @@ const CheckoutForm = ({ ticket, onSuccess, onCancel }) => {
 };
 
 export const StripePaymentForm = ({ ticket, onSuccess, onCancel }) => {
+  if (!STRIPE_PUBLISHABLE_KEY) {
+    return (
+      <div className="text-red-600 text-center p-4">
+        Stripe publishable key is missing. Please contact support.
+      </div>
+    );
+  }
   return (
     <Elements stripe={stripePromise}>
       <CheckoutForm 

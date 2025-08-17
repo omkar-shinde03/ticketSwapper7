@@ -180,14 +180,21 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     }
   };
 
-  const handleAcceptCall = async (callData) => {
-    await supabase
-      .from('video_calls')
-      .update({ status: 'in_call' })
-      .eq('id', callData.id);
-    setShowPickCallDialog(false);
-    // Start WebRTC connection here (reuse startVideoCall logic)
-    startVideoCall({ id: callData.user_id });
+  const handleAcceptCall = async (req) => {
+    setCallLoading(true);
+    try {
+      await supabase
+        .from('video_calls')
+        .update({ status: 'in_call' })
+        .eq('id', req.id);
+      setShowPickCallDialog(false);
+      // Start WebRTC connection for admin
+      startVideoCall({ id: req.user_id });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message || 'Failed to start video call', variant: 'destructive' });
+    } finally {
+      setCallLoading(false);
+    }
   };
 
   const handleRejectCall = async () => {

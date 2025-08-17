@@ -74,7 +74,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     async function fetchPendingVideoKYC() {
       const { data, error } = await supabase
         .from('video_calls')
-        .select('id, user_id, status, created_at, profiles:user_id(full_name, email, phone, kyc_status)')
+        .select('id, user_id, status, created_at, profiles:user_id(full_name, email, phone, kyc_status), call_link')
         .eq('status', 'waiting_admin')
         .order('created_at', { ascending: false });
       if (!error) setPendingVideoKYCRequests(data || []);
@@ -439,6 +439,13 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
                           <h4 className="font-medium">{req.profiles?.full_name || req.profiles?.email}</h4>
                           <p className="text-sm text-gray-500">{req.profiles?.phone || 'No phone'}</p>
                           <Badge variant="outline" className="text-orange-700 bg-orange-100">Pending Review</Badge>
+                          {req.call_link && (
+                            <div className="mt-2">
+                              <span className="text-xs text-blue-700 break-all">Video Link: </span>
+                              <a href={req.call_link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-700 underline">{req.call_link}</a>
+                              <Button size="sm" className="ml-2 px-2 py-1" onClick={() => window.open(req.call_link, '_blank')}>Join</Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">

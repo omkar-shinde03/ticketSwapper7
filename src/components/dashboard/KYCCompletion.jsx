@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, Video, CheckCircle, AlertCircle, VideoIcon, Mic, MicOff, VideoOff, Phone, Clock } from "lucide-react";
+import { generateJitsiKycLink } from "@/utils/jitsiUtils";
 
 export const KYCCompletion = ({ profile, onUpdate }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -97,7 +98,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
     if (!file) return;
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
       toast({
         title: "Invalid file type",
@@ -119,43 +120,61 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
 
     setIsLoading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${profile.id}-aadhaar-${Date.now()}.${fileExt}`;
-      
       const { error: uploadError } = await supabase.storage
-        .from('kyc-documents')
+        .from("kyc-documents")
         .upload(fileName, file);
-
       if (uploadError) {
         throw uploadError;
       }
-
       // Insert document record into user_documents table
       const { data: user } = await supabase.auth.getUser();
-      console.log('DEBUG KYC user:', user); // Debug log
-      console.log('DEBUG KYC user_id for insert:', user?.user?.id); // Debug log
       const { error: dbError } = await supabase
-        .from('user_documents')
+        .from("user_documents")
         .insert({
           user_id: user.user.id,
           file_name: file.name,
           file_type: file.type,
           file_size: file.size,
-          file_url: fileName, // or generate public URL if needed
+          file_url: fileName,
           storage_path: fileName,
-          document_type: 'aadhaar',
-          verification_status: 'pending'
+          document_type: "aadhaar",
+          verification_status: "pending",
         });
       if (dbError) {
         throw dbError;
       }
-
+      // Generate Jitsi link and create video_calls row
+      const callLink = generateJitsiKycLink();
+      const { data: videoCall, error: videoCallError } = await supabase
+        .from("video_calls")
+        .insert({
+          user_id: user.user.id,
+          status: "waiting_admin",
+          call_type: "kyc_verification",
+          call_link: callLink,
+        })
+        .select("id")
+        .single();
+      if (videoCallError) {
+        throw videoCallError;
+      }
+      // Email the link to the user
+      await supabase.functions.invoke("send-email", {
+        body: {
+          to: user.user.email,
+          subject: "Your Video KYC Call Link",
+          body: `Dear User,\n\nYour video KYC verification call is ready. Please join the call at your scheduled time using the link below:\n\n${callLink}\n\nThank you,\nTicketSwapper Team`,
+        },
+      });
       setUploadedFile(fileName);
-      setUploadStep('verify');
-      
+      setUploadStep("verify");
+      setVideoKYCRequested(true);
+      setVideoKYCRequestId(videoCall.id);
       toast({
         title: "Document uploaded",
-        description: "Please proceed to video verification.",
+        description: "Your video KYC link has been sent to your email. Please wait for the admin to join.",
       });
     } catch (error) {
       toast({

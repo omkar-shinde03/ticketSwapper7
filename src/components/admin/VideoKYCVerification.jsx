@@ -96,12 +96,25 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     });
     pc.onicecandidate = (event) => {
       if (event.candidate && callId) {
+        console.log('[Admin] Sending ICE candidate:', event.candidate);
         sendSignal(callId, { type: 'ice-candidate', candidate: event.candidate });
       }
     };
     pc.ontrack = (event) => {
+      console.log('[Admin] ontrack event:', event);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
+        console.log('[Admin] Remote stream set');
+      }
+    };
+    pc.onconnectionstatechange = () => {
+      console.log('[Admin] Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        setStatusMessage('Admin Connected');
+        setAdminConnected(true);
+      }
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        endVideoCall();
       }
     };
     return pc;
@@ -129,12 +142,13 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
       setCallId(req.id);
       joinSignalingChannel(req.id, async (msg) => {
+        console.log('[Admin] Signaling message received:', msg);
         if (msg.type === 'answer') {
           console.log('[Admin] Received answer');
           await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
           toast({ title: 'User Connected', description: 'The user has joined the call.' });
         } else if (msg.type === 'ice-candidate' && msg.candidate) {
-          console.log('[Admin] Received ICE candidate');
+          console.log('[Admin] Received ICE candidate:', msg.candidate);
           try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
         }
       });

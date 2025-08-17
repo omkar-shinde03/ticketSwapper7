@@ -98,6 +98,7 @@ const VideoKYCSystem = () => {
                   localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
                 }
                 joinSignalingChannel(callIdRef, async (msg) => {
+                  console.log('[User] Signaling message received:', msg);
                   if (msg.type === 'offer') {
                     console.log('[User] Received offer');
                     await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
@@ -106,7 +107,7 @@ const VideoKYCSystem = () => {
                     sendSignal(callIdRef, { type: 'answer', answer });
                     console.log('[User] Sent answer');
                   } else if (msg.type === 'ice-candidate' && msg.candidate) {
-                    console.log('[User] Received ICE candidate');
+                    console.log('[User] Received ICE candidate:', msg.candidate);
                     try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
                   }
                 });
@@ -122,6 +123,7 @@ const VideoKYCSystem = () => {
                   }
                 };
                 pc.ontrack = (event) => {
+                  console.log('[User] ontrack event:', event);
                   if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = event.streams[0];
                     console.log('[User] Remote stream set');
@@ -175,12 +177,25 @@ const VideoKYCSystem = () => {
     });
     pc.onicecandidate = (event) => {
       if (event.candidate && callId) {
+        console.log('[User] Sending ICE candidate:', event.candidate);
         sendSignal(callId, { type: 'ice-candidate', candidate: event.candidate });
       }
     };
     pc.ontrack = (event) => {
+      console.log('[User] ontrack event:', event);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+    pc.onconnectionstatechange = () => {
+      console.log('[User] Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        setCallStatus('connected');
+        setAdminConnected(true);
+        toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
+      }
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        endVideoCall();
       }
     };
     return pc;

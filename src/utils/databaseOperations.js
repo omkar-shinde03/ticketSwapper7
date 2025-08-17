@@ -151,6 +151,15 @@ export const DatabaseOperations = {
   },
 
   async updateKYCStatus(userId, status) {
+    const allowedStatuses = ['pending', 'verified', 'rejected', 'approved'];
+    if (!userId) {
+      console.error('updateKYCStatus: userId is required');
+      return { data: null, error: 'User ID is required' };
+    }
+    if (!allowedStatuses.includes(status)) {
+      console.error('updateKYCStatus: Invalid status value:', status);
+      return { data: null, error: 'Invalid status value' };
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -158,12 +167,14 @@ export const DatabaseOperations = {
         .eq('id', userId)
         .select()
         .single();
-      
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error updating KYC status:', error.message, error.details);
+        throw error;
+      }
       return { data, error: null };
     } catch (error) {
-      console.error('Error updating KYC status:', error);
-      return { data: null, error };
+      console.error('Error updating KYC status:', error.message || error);
+      return { data: null, error: error.message || error };
     }
   },
 

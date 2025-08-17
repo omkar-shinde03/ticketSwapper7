@@ -16,58 +16,53 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Parse request body
-  const { to, subject, body } = await req.json();
+  try {
+    // Parse request body
+    const { to, subject, body } = await req.json();
 
-  // Get Brevo API key from environment variable
-  const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
-  if (!BREVO_API_KEY) {
+    // Get Brevo API key from environment variable
+    const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
+    if (!BREVO_API_KEY) {
+      throw new Error("Missing BREVO_API_KEY environment variable");
+    }
+
+    // Send email via Brevo API
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        sender: { name: "TicketSwapper", email: "no-reply@ticketswapper.com" },
+        to: [{ email: to }],
+        subject,
+        htmlContent: `<html><body>${body.replace(/\n/g, "<br>")}</body></html>`
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
+    }
+
     return new Response(
-      JSON.stringify({ error: "Missing BREVO_API_KEY environment variable" }),
+      JSON.stringify({ message: "Email sent via Brevo" }),
       {
-        status: 500,
         headers: {
           ...CORS_HEADERS,
           "Content-Type": "application/json",
         },
       }
     );
+  } catch (error) {
+    // Log the error for debugging
+    console.error("send-email error:", error);
+
+    return new Response(
+      JSON.stringify({ error: error.message || "Unknown error" }),
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+    );
   }
-
-  // Send email via Brevo API
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "api-key": BREVO_API_KEY,
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
-    body: JSON.stringify({
-      sender: { name: "TicketSwapper", email: "no-reply@ticketswapper.com" },
-      to: [{ email: to }],
-      subject,
-      htmlContent: `<html><body>${body.replace(/\n/g, "<br>")}</body></html>`
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    return new Response(JSON.stringify({ error }), {
-      status: 500,
-      headers: {
-        ...CORS_HEADERS,
-        "Content-Type": "application/json",
-      },
-    });
-  }
-
-  return new Response(
-    JSON.stringify({ message: "Email sent via Brevo" }),
-    {
-      headers: {
-        ...CORS_HEADERS,
-        "Content-Type": "application/json",
-      },
-    }
-  );
 });

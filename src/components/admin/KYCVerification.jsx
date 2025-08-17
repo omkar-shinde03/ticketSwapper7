@@ -28,23 +28,50 @@ export const KYCVerification = ({ users, onUpdate }) => {
   const [loading, setLoading] = useState(null);
   const { toast } = useToast();
 
-  const pendingUsers = users.filter(user => user.kyc_status === 'pending' && user.user_type !== 'admin');
-
-  const handleKYCAction = async (userId, action) => {
-    setLoading(userId);
+  const handleVerifyKYC = async (user) => {
+    setLoading(user.id);
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ kyc_status: action })
-        .eq('id', userId);
+        .update({ kyc_status: 'verified' })
+        .eq('id', user.id);
 
       if (error) {
         throw error;
       }
 
       toast({
-        title: `KYC ${action}`,
-        description: `User KYC has been ${action} successfully.`,
+        title: "KYC Verified",
+        description: `User KYC has been verified successfully.`,
+      });
+
+      onUpdate();
+    } catch (error) {
+      toast({
+        title: "KYC action failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleRejectKYC = async (user) => {
+    setLoading(user.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ kyc_status: 'rejected' })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "KYC Rejected",
+        description: `User KYC has been rejected successfully.`,
       });
 
       onUpdate();
@@ -66,60 +93,32 @@ export const KYCVerification = ({ users, onUpdate }) => {
         <CardDescription>Review and approve pending KYC verifications</CardDescription>
       </CardHeader>
       <CardContent>
-        {pendingUsers.length === 0 ? (
+        {users.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No pending KYC verifications
+            No users found for KYC verification
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pendingUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    {user.full_name || 'N/A'}
-                  </TableCell>
-                  <TableCell>{user.phone || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-yellow-700 bg-yellow-100">
-                      Pending Verification
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-green-600 border-green-600 hover:bg-green-50"
-                        onClick={() => handleKYCAction(user.id, 'verified')}
-                        disabled={loading === user.id}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-600 hover:bg-red-50"
-                        onClick={() => handleKYCAction(user.id, 'rejected')}
-                        disabled={loading === user.id}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-4">
+            {users.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg mb-2">
+                <div>
+                  <h4 className="font-medium">{user.full_name || user.email}</h4>
+                  <p className="text-sm text-gray-500">{user.email}</p>
+                  <Badge variant="outline" className={user.kyc_status === 'pending' ? 'text-orange-700 bg-orange-100' : user.kyc_status === 'verified' ? 'text-green-700 bg-green-100' : 'text-gray-700 bg-gray-100'}>
+                    {user.kyc_status}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleVerifyKYC(user)} disabled={user.kyc_status === 'verified'}>
+                    Verify
+                  </Button>
+                  <Button variant="destructive" onClick={() => handleRejectKYC(user)} disabled={user.kyc_status === 'rejected'}>
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

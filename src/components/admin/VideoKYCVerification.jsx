@@ -32,6 +32,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
   const [incomingCall, setIncomingCall] = useState(null);
   const [showPickCallDialog, setShowPickCallDialog] = useState(false);
   const { data: user } = supabase.auth.getUser();
+  const [pendingVideoKYCRequests, setPendingVideoKYCRequests] = useState([]);
 
   useEffect(() => {
     // Filter users with pending KYC
@@ -65,6 +66,25 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       return () => supabase.removeChannel(channel);
     }
   }, [user]);
+
+  // Fetch all pending video KYC requests for admin
+  useEffect(() => {
+    async function fetchPendingVideoKYC() {
+      const { data, error } = await supabase
+        .from('video_calls')
+        .select('id, user_id, status, created_at, profiles: user_id (full_name, email, phone, kyc_status)')
+        .eq('status', 'waiting_admin')
+        .order('created_at', { ascending: false });
+      if (!error) setPendingVideoKYCRequests(data || []);
+    }
+    fetchPendingVideoKYC();
+    // Optionally, subscribe to real-time changes in video_calls
+    const channel = supabase
+      .channel('video_calls_pending_kyc')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_calls' }, fetchPendingVideoKYC)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection({
@@ -160,15 +180,14 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     }
   };
 
-  const handleAcceptCall = async () => {
-    if (!incomingCall) return;
+  const handleAcceptCall = async (callData) => {
     await supabase
       .from('video_calls')
       .update({ status: 'in_call' })
-      .eq('id', incomingCall.id);
+      .eq('id', callData.id);
     setShowPickCallDialog(false);
     // Start WebRTC connection here (reuse startVideoCall logic)
-    startVideoCall({ id: incomingCall.user_id });
+    startVideoCall({ id: callData.user_id });
   };
 
   const handleRejectCall = async () => {
@@ -331,52 +350,31 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredPendingUsers.length === 0 ? (
+              {pendingVideoKYCRequests.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <p className="text-gray-500">No pending KYC verifications</p>
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {filteredPendingUsers.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  {pendingVideoKYCRequests.map((req) => (
+                    <div key={req.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full">
                           <User className="h-5 w-5 text-gray-600" />
                         </div>
                         <div>
-                          <h4 className="font-medium">{user.full_name || user.email}</h4>
-                          <p className="text-sm text-gray-500">{user.phone || 'No phone'}</p>
-                          <Badge 
-                            variant="outline" 
-                            className={
-                              user.kyc_status === 'pending' 
-                                ? 'text-orange-700 bg-orange-100' 
-                                : 'text-gray-700 bg-gray-100'
-                            }
-                          >
-                            {user.kyc_status === 'pending' ? 'Pending Review' : 'Not Started'}
+                          <h4 className="font-medium">{req.profiles?.full_name || req.profiles?.email}</h4>
+                          <p className="text-sm text-gray-500">{req.profiles?.phone || 'No phone'}</p>
+                          <Badge variant="outline" className={req.profiles?.kyc_status === 'pending' ? 'text-orange-700 bg-orange-100' : 'text-gray-700 bg-gray-100'}>
+                            {req.profiles?.kyc_status === 'pending' ? 'Pending Review' : 'Not Started'}
                           </Badge>
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {user.kyc_document_url && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => viewDocument(user)}
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            View Document
-                          </Button>
-                        )}
-                        <Button
-                          onClick={() => startVideoCall(user)}
-                          disabled={!user.kyc_document_url || callLoading}
-                          size="sm"
-                        >
-                          {callLoading ? 'Connecting...' : <Video className="h-4 w-4 mr-2" />}
-                          {callLoading ? '' : 'Start Video Call'}
+                        <Button onClick={() => handleAcceptCall(req)} disabled={callLoading}>
+                          <Video className="h-4 w-4 mr-1" />
+                          Pick Call
                         </Button>
                       </div>
                     </div>

@@ -117,58 +117,8 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
     }
   };
 
-  const startVideoCall = async () => {
-    setShowVideoDialog(true);
-    setUploadStep('video-call');
-    
-    try {
-      // Get user media
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: true 
-      });
-      localStreamRef.current = stream;
-      
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-      
-      setIsInCall(true);
-      setCallStatus('waiting');
-      
-      // Create a video call record in the database
-      const { error } = await supabase
-        .from('video_calls')
-        .insert({
-          user_id: profile.id,
-          status: 'waiting_admin',
-          call_type: 'kyc_verification'
-        });
-        
-      if (error) {
-        console.error('Error creating video call record:', error);
-      }
-      
-      // Simulate admin connection after 3 seconds
-      setTimeout(() => {
-        setAdminConnected(true);
-        setCallStatus('connected');
-        toast({
-          title: "Admin Connected",
-          description: "Please show your Aadhaar card to the camera for verification.",
-        });
-      }, 3000);
-      
-    } catch (error) {
-      toast({
-        title: "Camera Access Required",
-        description: "Please allow camera and microphone access for video verification.",
-        variant: "destructive",
-      });
-      setShowVideoDialog(false);
-      setUploadStep('verify');
-    }
-  };
+  // Remove startVideoCall and all 'Start Video Verification' buttons from user side
+  // After document upload, only show a waiting message
 
   const endVideoCall = async () => {
     if (localStreamRef.current) {
@@ -347,16 +297,11 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
             <Video className="h-12 w-12 text-blue-600 mx-auto mb-3" />
             <h3 className="font-medium text-blue-900 mb-2">Video Verification Required</h3>
             <p className="text-sm text-blue-700 mb-4">
-              To complete your KYC, we need to verify your identity through a quick video call
+              To complete your KYC, please request video verification. An admin will contact you for a video call.
             </p>
-            <Button 
-              onClick={startVideoCall}
-              disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Video className="h-4 w-4 mr-2" />
-              Start Video Verification
-            </Button>
+            <Badge variant="outline" className="text-orange-700 bg-orange-100">
+              Waiting for admin to start the call
+            </Badge>
           </div>
         )}
 
@@ -370,16 +315,11 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
               <Video className="h-12 w-12 text-blue-600 mx-auto mb-3" />
               <h3 className="font-medium text-blue-900 mb-2">Video Verification Required</h3>
               <p className="text-sm text-blue-700 mb-4">
-                To complete your KYC, we need to verify your identity through a quick video call
+                To complete your KYC, please request video verification. An admin will contact you for a video call.
               </p>
-              <Button 
-                onClick={startVideoCall}
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                Start Video Verification
-              </Button>
+              <Badge variant="outline" className="text-orange-700 bg-orange-100">
+                Waiting for admin to start the call
+              </Badge>
             </div>
           </div>
         )}

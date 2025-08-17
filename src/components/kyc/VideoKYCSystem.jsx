@@ -61,6 +61,28 @@ const VideoKYCSystem = () => {
     })();
   }, []);
 
+  // User requests a video call (no camera, no dialog)
+  const handleRequestVideoKYC = async () => {
+    if (!currentUserId) return;
+    setCanRequest(false);
+    const { error, data } = await supabase
+      .from('video_calls')
+      .insert({
+        user_id: currentUserId,
+        status: 'waiting_admin',
+        call_type: 'kyc_verification'
+      })
+      .select('*')
+      .single();
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setCanRequest(true);
+    } else {
+      setUserCall(data);
+      setCanRequest(false);
+    }
+  };
+
   // Real-time subscription for user's latest call
   useEffect(() => {
     if (!currentUserId) return;
@@ -86,49 +108,59 @@ const VideoKYCSystem = () => {
             filter: `id=eq.${callIdRef}`
           }, async (payload) => {
             setUserCall(payload.new);
-            if (payload.new.status === 'admin_connected' || payload.new.status === 'in_call') {
+            // Only when admin starts the call, show dialog and prompt for camera
+            if (payload.new.status === 'admin_connected') {
               setShowVideoDialog(true);
               setCallStatus('connecting');
-              // Start WebRTC as answerer
-              if (!peerConnection) {
-                const pc = createPeerConnection();
-                setPeerConnection(pc);
-                // Add local stream
-                if (localStreamRef.current) {
-                  localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
+              // Prompt for camera/mic and join WebRTC here
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localStreamRef.current = stream;
+                if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                // Start WebRTC as answerer (existing logic)
+                if (!peerConnection) {
+                  const pc = createPeerConnection();
+                  setPeerConnection(pc);
+                  // Add local stream
+                  if (localStreamRef.current) {
+                    localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
+                  }
+                  joinSignalingChannel(callIdRef, async (msg) => {
+                    console.log('[User] Signaling message received:', msg);
+                    if (msg.type === 'offer') {
+                      console.log('[User] Received offer');
+                      await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+                      const answer = await pc.createAnswer();
+                      await pc.setLocalDescription(answer);
+                      sendSignal(callIdRef, { type: 'answer', answer });
+                      console.log('[User] Sent answer');
+                    } else if (msg.type === 'ice-candidate' && msg.candidate) {
+                      console.log('[User] Received ICE candidate:', msg.candidate);
+                      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+                    }
+                  });
+                  pc.onconnectionstatechange = () => {
+                    console.log('[User] Connection state:', pc.connectionState);
+                    if (pc.connectionState === 'connected') {
+                      setCallStatus('connected');
+                      setAdminConnected(true);
+                      toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
+                    }
+                    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+                      endVideoCall();
+                    }
+                  };
+                  pc.ontrack = (event) => {
+                    console.log('[User] ontrack event:', event);
+                    if (remoteVideoRef.current) {
+                      remoteVideoRef.current.srcObject = event.streams[0];
+                      console.log('[User] Remote stream set');
+                    }
+                  };
                 }
-                joinSignalingChannel(callIdRef, async (msg) => {
-                  console.log('[User] Signaling message received:', msg);
-                  if (msg.type === 'offer') {
-                    console.log('[User] Received offer');
-                    await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    sendSignal(callIdRef, { type: 'answer', answer });
-                    console.log('[User] Sent answer');
-                  } else if (msg.type === 'ice-candidate' && msg.candidate) {
-                    console.log('[User] Received ICE candidate:', msg.candidate);
-                    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
-                  }
-                });
-                pc.onconnectionstatechange = () => {
-                  console.log('[User] Connection state:', pc.connectionState);
-                  if (pc.connectionState === 'connected') {
-                    setCallStatus('connected');
-                    setAdminConnected(true);
-                    toast({ title: 'Admin Connected', description: 'Please show your Aadhaar card to the camera for verification.' });
-                  }
-                  if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-                    endVideoCall();
-                  }
-                };
-                pc.ontrack = (event) => {
-                  console.log('[User] ontrack event:', event);
-                  if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = event.streams[0];
-                    console.log('[User] Remote stream set');
-                  }
-                };
+              } catch (err) {
+                toast({ title: 'Camera Error', description: err.message, variant: 'destructive' });
+                return;
               }
             }
             if (payload.new.status === 'completed' || payload.new.status === 'rejected') {
@@ -398,28 +430,6 @@ const VideoKYCSystem = () => {
 
   // Only show KYC complete if call was actually connected
   const showKYCComplete = callStatus === 'in_call' && !activeCall;
-
-  // User requests a video call
-  const handleRequestVideoKYC = async () => {
-    if (!currentUserId) return;
-    setCanRequest(false);
-    const { error, data } = await supabase
-      .from('video_calls')
-      .insert({
-        user_id: currentUserId,
-        status: 'waiting_admin',
-        call_type: 'kyc_verification'
-      })
-      .select('*')
-      .single();
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      setCanRequest(true);
-    } else {
-      setUserCall(data);
-      setCanRequest(false);
-    }
-  };
 
   return (
     <TooltipProvider>

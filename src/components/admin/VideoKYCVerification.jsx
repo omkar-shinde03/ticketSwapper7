@@ -126,13 +126,18 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     setActiveCall(req);
     setShowVideoDialog(true);
     try {
-      // 1. Get admin media
+      // Update video_calls status to 'admin_connected' to notify user
+      await supabase
+        .from('video_calls')
+        .update({ status: 'admin_connected' })
+        .eq('id', req.id);
+      // Now prompt admin for camera/mic and start WebRTC as offerer
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      // 2. Set up signaling
+      // Start WebRTC as offerer (existing logic)
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -179,11 +184,11 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       await pc.setLocalDescription(offer);
       sendSignal(req.id, { type: 'offer', offer });
       // 4. Update video_calls status
-      await supabase
-        .from('video_calls')
-        .update({ status: 'admin_connected' })
-        .eq('id', req.id);
-      toast({ title: 'Waiting for user to answer...', description: 'Please keep this window open.' });
+      // await supabase
+      //   .from('video_calls')
+      //   .update({ status: 'admin_connected' })
+      //   .eq('id', req.id);
+      toast({ title: 'Waiting for user to join...', description: 'Please keep this window open.' });
     } catch (error) {
       toast({ title: 'Error', description: error.message || 'Failed to start video call', variant: 'destructive' });
       setShowVideoDialog(false);

@@ -161,6 +161,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         throw videoCallError;
       }
       // Email the link to the user
+      console.log('Sending video KYC link to:', user.user.email, callLink);
       await supabase.functions.invoke("send-email", {
         body: {
           to: user.user.email,
@@ -177,6 +178,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         description: "Your video KYC link has been sent to your email. Please wait for the admin to join.",
       });
     } catch (error) {
+      console.error('KYC upload or email error:', error);
       toast({
         title: "Upload failed",
         description: error.message,

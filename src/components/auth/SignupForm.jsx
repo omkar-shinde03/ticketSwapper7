@@ -200,7 +200,7 @@ const SignupForm = () => {
               setEmailError("");
             }}
             required
-            pattern={"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\\.[a-zA-Z]{2,}$"}
+            pattern={"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"}
           />
         </div>
         {emailError && <p className="text-red-600 text-xs mt-1">{emailError}</p>}

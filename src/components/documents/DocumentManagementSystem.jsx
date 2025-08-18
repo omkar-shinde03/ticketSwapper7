@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { sendEmail } from '@/utils/notifications';
 
 const DocumentManagementSystem = () => {
   const [documents, setDocuments] = useState([]);
@@ -84,10 +85,13 @@ const DocumentManagementSystem = () => {
           .getPublicUrl(filePath);
 
         // Save document record
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData.user?.id;
+        const userEmail = userData.user?.email;
         const { error: dbError } = await supabase
           .from('user_documents')
           .insert({
-            user_id: (await supabase.auth.getUser()).data.user?.id,
+            user_id: userId,
             file_name: file.name,
             file_type: file.type,
             file_size: file.size,
@@ -97,6 +101,20 @@ const DocumentManagementSystem = () => {
           });
 
         if (dbError) throw dbError;
+
+        // Send video call link email after successful upload
+        if (userEmail) {
+          await sendEmail(
+            userEmail,
+            'Your Video Call Link',
+            'video_call_link', // Use your actual template name
+            {
+              // Add any template data needed for the email
+              link: `${window.location.origin}/video-call`,
+              fileName: file.name
+            }
+          );
+        }
 
         setUploadProgress(((i + 1) / files.length) * 100);
       }
@@ -216,6 +234,12 @@ const DocumentManagementSystem = () => {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  // Helper to safely format dates
+  const formatDateSafe = (dateString) => {
+    const date = new Date(dateString);
+    return dateString && !isNaN(date) ? date.toLocaleDateString() : 'Unknown';
+  };
+
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -303,7 +327,7 @@ const DocumentManagementSystem = () => {
                         <span>•</span>
                         <span>{formatFileSize(document.file_size)}</span>
                         <span>•</span>
-                        <span>{new Date(document.uploaded_at).toLocaleDateString()}</span>
+                        <span>{formatDateSafe(document.uploaded_at)}</span>
                       </div>
                     </div>
                   </div>

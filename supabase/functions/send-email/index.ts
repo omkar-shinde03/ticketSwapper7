@@ -18,7 +18,16 @@ Deno.serve(async (req) => {
 
   try {
     // Parse request body
-    const { to, subject, body } = await req.json();
+    const { to, subject, body, video_link } = await req.json();
+
+    // Log the received payload for debugging
+    console.log("send-email payload:", { to, subject, body, video_link });
+
+    // Ensure the video link is included in the body if provided
+    let finalBody = body || "";
+    if (video_link && !finalBody.includes(video_link)) {
+      finalBody += `\n\nJoin your video call: <a href='${video_link}'>${video_link}</a>`;
+    }
 
     // Get Brevo API key from environment variable
     const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
@@ -38,7 +47,7 @@ Deno.serve(async (req) => {
         sender: { name: "TicketSwapper", email: "no-reply@ticketswapper.com" },
         to: [{ email: to }],
         subject,
-        htmlContent: `<html><body>${body.replace(/\n/g, "<br>")}</body></html>`
+        htmlContent: `<html><body>${finalBody.replace(/\n/g, "<br>")}</body></html>`
       })
     });
 

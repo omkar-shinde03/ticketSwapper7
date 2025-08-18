@@ -71,9 +71,15 @@ const LoginForm = () => {
       }
     } catch (error) {
       console.error("Login error:", error);
+      let errorMessage = error.message || "An unexpected error occurred. Please try again.";
+      if (error.status === 429 || (errorMessage && errorMessage.includes("rate limit"))) {
+        errorMessage = "Too many login attempts. Please wait a moment before trying again.";
+      } else if (error.status === 403 || (errorMessage && errorMessage.toLowerCase().includes("forbidden"))) {
+        errorMessage = "You are not authorized to access this resource. Please check your credentials or contact support.";
+      }
       toast({
         title: "Login failed",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

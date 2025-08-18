@@ -103,24 +103,19 @@ const SignupForm = () => {
 
     } catch (error) {
       console.error("Signup error:", error);
-      
       // Provide more specific error messages
       let errorMessage = "An unexpected error occurred. Please try again.";
-      
-      if (error.message) {
-        if (error.message.includes("rate limit")) {
-          errorMessage = "Too many attempts. Please wait a moment before trying again.";
-        } else if (error.message.includes("already exists") || error.message.includes("already registered")) {
-          errorMessage = "An account with this email or phone number already exists. Please log in instead.";
-        } else if (error.message.includes("Password should be at least")) {
-          errorMessage = "Password must be at least 6 characters long.";
-        } else if (error.message.includes("Invalid email")) {
-          errorMessage = "Please enter a valid email address.";
-        } else {
-          errorMessage = error.message;
-        }
+      if (error.status === 409 || (error.message && (error.message.includes("already exists") || error.message.includes("already registered")))) {
+        errorMessage = "An account with this email or phone number already exists. Please log in instead.";
+      } else if (error.status === 429 || (error.message && error.message.includes("rate limit"))) {
+        errorMessage = "Too many attempts. Please wait a moment before trying again.";
+      } else if (error.message && error.message.includes("Password should be at least")) {
+        errorMessage = "Password must be at least 6 characters long.";
+      } else if (error.message && error.message.includes("Invalid email")) {
+        errorMessage = "Please enter a valid email address.";
+      } else if (error.message) {
+        errorMessage = error.message;
       }
-      
       toast({
         title: "Signup failed",
         description: errorMessage,

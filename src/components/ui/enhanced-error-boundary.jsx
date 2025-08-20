@@ -60,7 +60,7 @@ class EnhancedErrorBoundary extends React.Component {
         console.error('Failed to log error:', e);
       }
     }
-  };
+  }
 
   // Use arrow functions to bind 'this' correctly
   handleReset = () => {
@@ -159,3 +159,4 @@ class EnhancedErrorBoundary extends React.Component {
 }
 
 export { EnhancedErrorBoundary };
+

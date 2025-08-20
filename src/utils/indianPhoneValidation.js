@@ -25,7 +25,7 @@ export const isValidIndianMobile = (phoneNumber) => {
   }
 
   // Remove all spaces and special characters except + and digits
-  const cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
   
   return Object.values(INDIAN_MOBILE_PATTERNS).some(pattern => 
     pattern.test(cleaned)
@@ -41,7 +41,7 @@ export const formatIndianPhone = (phoneNumber) => {
   if (!phoneNumber) return '';
   
   // Remove all spaces and special characters except + and digits
-  let cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  let cleaned = phoneNumber.replace(/[\s\-()]/g, '');
   
   // Handle different input formats
   if (cleaned.startsWith('+91')) {
@@ -70,7 +70,7 @@ export const formatIndianPhone = (phoneNumber) => {
 export const extractMobileNumber = (phoneNumber) => {
   if (!phoneNumber) return '';
   
-  const cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
   
   if (cleaned.startsWith('+91')) {
     return cleaned.substring(3);
@@ -151,7 +151,7 @@ export const getCommonMobilePrefixes = () => {
 export const hasValidMobilePrefix = (phoneNumber) => {
   if (!phoneNumber) return false;
   
-  const cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
   const mobilePart = cleaned.startsWith('+91') ? cleaned.substring(3) : 
                      cleaned.startsWith('91') ? cleaned.substring(2) :
                      cleaned.startsWith('0') ? cleaned.substring(1) : cleaned;

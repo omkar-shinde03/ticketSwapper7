@@ -29,15 +29,12 @@ const QuickSellForm = ({ user, onTicketAdded }) => {
       });
       return;
     }
-
     setIsValidating(true);
-
     try {
       toast({
         title: "Validating ticket...",
         description: "Verifying PNR with operator API",
       });
-
       const validation = await validatePNRInBackground(
         newTicket.pnr_number, 
         newTicket.bus_operator,
@@ -45,7 +42,6 @@ const QuickSellForm = ({ user, onTicketAdded }) => {
           passengerName: newTicket.passenger_name
         }
       );
-
       if (!validation.isValid) {
         toast({
           title: "Invalid PNR or Details",
@@ -54,7 +50,6 @@ const QuickSellForm = ({ user, onTicketAdded }) => {
         });
         return;
       }
-
       // Use API data for all ticket details
       const apiData = validation.ticketData;
       const { error } = await supabase

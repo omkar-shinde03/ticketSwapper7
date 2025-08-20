@@ -503,4 +503,3 @@ export const quickRepair = async () => {
   }
 };
 
-export { DatabaseRepair };

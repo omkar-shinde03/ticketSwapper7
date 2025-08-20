@@ -39,7 +39,7 @@ const IndianPhoneInput = ({
     const newValue = e.target.value;
     
     // Only allow digits, spaces, +, (, ), and -
-    const cleaned = newValue.replace(/[^\d\s\+\-\(\)]/g, '');
+    const cleaned = newValue.replace(/[^\d\s+\-()]/g, '');
     
     setInputValue(cleaned);
     onChange?.(cleaned);

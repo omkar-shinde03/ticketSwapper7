@@ -55,6 +55,6 @@ export default defineConfig(({ mode }) => ({
     cors: true,
   },
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0'),
+    __APP_VERSION__: JSON.stringify('1.0.0'),
   },
 }));

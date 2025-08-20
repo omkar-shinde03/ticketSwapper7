@@ -172,7 +172,9 @@ export const handleUserSignup = async (signupData) => {
   try {
     const { data: { user: sessionUser }, error: sessionError } = await supabase.auth.getUser();
     if (sessionUser) sessionUserId = sessionUser.id;
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Failed to get session user:', e);
+  }
 
   // Debug logging (remove in production)
   // console.log('Signup userId:', userId, 'Session userId:', sessionUserId);
@@ -196,22 +198,22 @@ export const handleUserSignup = async (signupData) => {
       }
       throw new Error('Database error saving new user profile: ' + (profileError.message || 'Unknown error'));
     }
+    
+    // Send welcome email for non-admin users
+    if (!signupData.isAdmin) {
+      const jitsiLink = generateJitsiKycLink();
+      const subject = 'Complete Your KYC - Video Call Link';
+      const body = `Welcome to TicketSwapper!\n\nTo complete your KYC, join the video call using this link (admin is available now):\n${jitsiLink}\n\nThank you!`;
+      await supabase.functions.invoke('send-email', {
+        body: { to: signupData.email, subject, body }
+      });
+    }
+    
     return signupData.isAdmin;
   } else {
     // No session yet (likely needs email verification)
     // Profile will be created after first login
     return signupData.isAdmin;
-  }
-
-  if (!signupData.isAdmin) {
-    const jitsiLink = generateJitsiKycLink();
-    // Optionally, store the link in the DB for admin reference (not shown here)
-    // Send welcome email with only the Jitsi link
-    const subject = 'Complete Your KYC - Video Call Link';
-    const body = `Welcome to TicketSwapper!\n\nTo complete your KYC, join the video call using this link (admin is available now):\n${jitsiLink}\n\nThank you!`;
-    await supabase.functions.invoke('send-email', {
-      body: { to: signupData.email, subject, body }
-    });
   }
 };
 

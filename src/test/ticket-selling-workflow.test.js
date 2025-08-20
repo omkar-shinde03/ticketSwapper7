@@ -3,11 +3,11 @@
  * This tests the new categorization system where users select ticket type first
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock the TicketApiClient
 const mockTicketApiClient = {
-  verifyTicket: jest.fn()
+  verifyTicket: vi.fn()
 };
 
 // Mock the verification result
@@ -40,7 +40,7 @@ const mockVerificationResult = {
 
 describe('Ticket Selling Workflow with Transport Modes', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Transport Mode Selection', () => {

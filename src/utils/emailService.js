@@ -64,6 +64,11 @@ export const sendEmail = async (emailData) => {
     };
 
     console.log('Template parameters:', templateParams);
+    console.log('📧 Sending email with EmailJS...');
+    console.log('📋 Template variables being sent:');
+    Object.entries(templateParams).forEach(([key, value]) => {
+      console.log(`  ${key}: ${value}`);
+    });
 
     // Send email using EmailJS
     const response = await emailjs.send(
@@ -380,4 +385,49 @@ export const testEmail = async (testEmail) => {
   };
 
   return await sendEmail(emailData);
+};
+
+/**
+ * Test KYC email with video call link
+ * @param {string} testEmail - Test email address
+ * @returns {Promise} - Email result
+ */
+export const testKYCEmailWithVideoLink = async (testEmail) => {
+  const videoLink = 'https://meet.jit.si/kyc-test-' + Date.now();
+  
+  console.log('🧪 Testing KYC email with video link...');
+  console.log('Video link:', videoLink);
+  console.log('Test email:', testEmail);
+  
+  const emailData = {
+    to: testEmail,
+    subject: '🎥 Your Video KYC Verification Call',
+    body: `Dear User,
+
+Your video KYC verification call is ready! 
+
+📹 Join your verification call using this link:
+${videoLink}
+
+⏰ Please be ready at your scheduled time.
+
+📋 What to prepare:
+• Valid ID document (Aadhaar, PAN, etc.)
+• Good internet connection
+• Quiet environment for the call
+
+If you have any questions, please contact our support team.
+
+Thank you,
+TicketSwapper Team`,
+    video_link: videoLink
+  };
+
+  console.log('📧 Email data prepared:', emailData);
+  
+  const result = await sendEmail(emailData);
+  
+  console.log('📤 Email send result:', result);
+  
+  return result;
 };

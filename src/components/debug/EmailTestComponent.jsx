@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate } from '@/utils/emailService';
+import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate, testKYCEmailWithVideoLink } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
   const [emailAddress, setEmailAddress] = useState('');
@@ -168,6 +168,43 @@ export const EmailTestComponent = () => {
         toast({
           title: "Success!",
           description: `KYC email sent to ${emailAddress}. Check your inbox!`,
+        });
+      } else {
+        toast({
+          title: "Email Failed",
+          description: `Error: ${result.error}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Exception: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTestKYCEmailWithVideoLink = async () => {
+    if (!emailAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a test email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await testKYCEmailWithVideoLink(emailAddress);
+      
+      if (result.success) {
+        toast({
+          title: "Success! 🎥",
+          description: `KYC email with video link sent to ${emailAddress}. Check your inbox!`,
         });
       } else {
         toast({
@@ -357,6 +394,15 @@ export const EmailTestComponent = () => {
           >
             {isLoading ? 'Sending...' : 'Send Test KYC Email'}
           </Button>
+
+          <Button 
+            onClick={handleTestKYCEmailWithVideoLink} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Sending...' : 'Send Test KYC Email with Video Link'}
+          </Button>
         </div>
         
         <div className="text-sm text-gray-600">
@@ -366,6 +412,7 @@ export const EmailTestComponent = () => {
           <p>• <strong>Find Working Template:</strong> Automatically discover the ID of a working EmailJS template</p>
           <p>• <strong>Test Email:</strong> Simple test message</p>
           <p>• <strong>KYC Email:</strong> Full KYC notification with video link</p>
+          <p>• <strong>KYC Email with Video Link:</strong> Test the complete KYC email flow with video call link</p>
           <p>• Check your inbox after clicking any button</p>
         </div>
       </CardContent>

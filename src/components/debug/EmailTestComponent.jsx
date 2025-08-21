@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate, testKYCEmailWithVideoLink, debugEmailJSTemplate, testNewTemplate } from '@/utils/emailService';
+import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate, testKYCEmailWithVideoLink, debugEmailJSTemplate, testNewTemplate, testFixedEmailRouting, debugEmailJSTemplateConfig } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
   const [emailAddress, setEmailAddress] = useState('');
@@ -13,6 +13,8 @@ export const EmailTestComponent = () => {
   const [templateTestResults, setTemplateTestResults] = useState(null);
   const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [workingTemplate, setWorkingTemplate] = useState(null);
+  const [fixedRoutingResult, setFixedRoutingResult] = useState(null);
+  const [templateConfigResult, setTemplateConfigResult] = useState(null);
   const { toast } = useToast();
 
   const handleDiagnoseEmailJS = async () => {
@@ -104,6 +106,82 @@ export const EmailTestComponent = () => {
     } catch (error) {
       toast({
         title: "Template Test Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTestFixedRouting = async () => {
+    if (!emailAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a test email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await testFixedEmailRouting(emailAddress);
+      setFixedRoutingResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "Fixed Routing Test Complete! ✅",
+          description: `Test email sent using ${result.method} method. Check your inbox at ${emailAddress}`,
+        });
+      } else {
+        toast({
+          title: "Fixed Routing Test Failed! ❌",
+          description: `Error: ${result.error}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Fixed Routing Test Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDebugTemplateConfig = async () => {
+    if (!emailAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a test email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await debugEmailJSTemplateConfig(emailAddress);
+      setTemplateConfigResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "Template Config Debug Complete! 🔍",
+          description: "Template configuration analyzed. Check results below.",
+        });
+      } else {
+        toast({
+          title: "Template Config Debug Failed! ❌",
+          description: "Could not analyze template configuration.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Template Config Debug Error",
         description: `Error: ${error.message}`,
         variant: "destructive",
       });
@@ -473,6 +551,69 @@ export const EmailTestComponent = () => {
           {/* Add a placeholder for the new template test result if needed */}
         </div>
 
+                 {/* Fixed Routing Test Section */}
+         <div className="space-y-2">
+           <Label className="text-sm font-medium">Test Fixed Email Routing</Label>
+           <Button 
+             onClick={handleTestFixedRouting} 
+             disabled={isLoading}
+             variant="outline"
+             className="w-full"
+           >
+             {isLoading ? 'Testing...' : 'Test Fixed Email Routing'}
+           </Button>
+           {fixedRoutingResult && (
+             <div className={`p-3 rounded-md text-sm ${
+               fixedRoutingResult.success 
+                 ? 'bg-green-50 text-green-700 border border-green-200' 
+                 : 'bg-red-50 text-red-700 border border-red-200'
+             }`}>
+               <strong>{fixedRoutingResult.success ? '✅ ' : '❌ '}</strong>
+               {fixedRoutingResult.message}
+               {fixedRoutingResult.error && (
+                 <div className="mt-2 text-xs">
+                   <strong>Error:</strong> {fixedRoutingResult.error}
+                 </div>
+               )}
+             </div>
+           )}
+         </div>
+
+         {/* Template Configuration Debug Section */}
+         <div className="space-y-2">
+           <Label className="text-sm font-medium">Debug Template Configuration</Label>
+           <Button 
+             onClick={handleDebugTemplateConfig} 
+             disabled={isLoading}
+             variant="outline"
+             className="w-full"
+           >
+             {isLoading ? 'Debugging...' : 'Debug Template Configuration'}
+           </Button>
+           {templateConfigResult && (
+             <div className="p-3 rounded-md text-sm bg-blue-50 text-blue-700 border border-blue-200">
+               <strong>🔍 Template Config Analysis:</strong>
+               <div className="mt-2 space-y-1">
+                 {templateConfigResult.recommendations.map((rec, index) => (
+                   <div key={index} className="text-xs">{rec}</div>
+                 ))}
+               </div>
+               {templateConfigResult.results && (
+                 <details className="mt-2">
+                   <summary className="cursor-pointer text-xs font-medium">View Detailed Results</summary>
+                   <div className="mt-1 space-y-1">
+                     {templateConfigResult.results.map((result, index) => (
+                       <div key={index} className="text-xs">
+                         <strong>{result.test}:</strong> {result.success ? '✅' : '❌'} {result.note}
+                       </div>
+                     ))}
+                   </div>
+                 </details>
+               )}
+             </div>
+           )}
+         </div>
+
         <div className="space-y-2">
           <Label htmlFor="test-email">Test Email Address</Label>
           <Input
@@ -531,6 +672,7 @@ export const EmailTestComponent = () => {
           <p>• <strong>KYC Email:</strong> Full KYC notification with video link</p>
           <p>• <strong>KYC Email with Video Link:</strong> Test the complete KYC email flow with video call link</p>
           <p>• <strong>Test New EmailJS Template:</strong> Test the new template with explicit recipient routing</p>
+          <p>• <strong>Test Fixed Email Routing:</strong> Test if emails are sent to the correct recipient using fixed routing</p>
           <p>• Check your inbox after clicking any button</p>
         </div>
       </CardContent>

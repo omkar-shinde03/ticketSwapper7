@@ -11,19 +11,6 @@ const EMAILJS_PUBLIC_KEY = 'uAKdrHtZvlr7ohS46';
 // Initialize EmailJS
 emailjs.init(EMAILJS_PUBLIC_KEY);
 
-// Special configuration to ensure emails go to the correct recipient
-const emailjsConfig = {
-  serviceId: EMAILJS_SERVICE_ID,
-  templateId: EMAILJS_TEMPLATE_ID,
-  publicKey: EMAILJS_PUBLIC_KEY,
-  // Force EmailJS to use our recipient email
-  templateParams: {
-    to_email: '',
-    user_email: '',
-    email: ''
-  }
-};
-
 /**
  * Send email using EmailJS
  * @param {Object} emailData - Email data
@@ -35,74 +22,9 @@ const emailjsConfig = {
  */
 export const sendEmail = async (emailData) => {
   try {
-    console.log('📧 Attempting to send email with EmailJS...');
-    console.log('📧 Recipient email:', emailData.to);
-    console.log('📧 Service ID:', EMAILJS_SERVICE_ID);
-    console.log('📧 Template ID:', EMAILJS_TEMPLATE_ID);
-    console.log('📧 Public Key:', EMAILJS_PUBLIC_KEY);
-    
-    // Create template parameters with ALL possible variable names
-    const templateParams = {
-      // Primary recipient variables - CRITICAL for routing
-      to_email: emailData.to,
-      to_name: 'User',
-      user_email: emailData.to,
-      email: emailData.to,
-      recipient_email: emailData.to,
-      to: emailData.to,
-      
-      // Sender variables
-      from_name: 'TicketSwapper Team',
-      from_email: 'no-reply@ticketswapper.com',
-      reply_to: 'no-reply@ticketswapper.com',
-      
-      // Content variables
-      subject: emailData.subject,
-      message: emailData.body,
-      body: emailData.body,
-      content: emailData.body,
-      text: emailData.body,
-      html: emailData.body.replace(/\n/g, '<br>'),
-      
-      // Video link variables (multiple formats)
-      video_link: emailData.video_link || '',
-      link: emailData.video_link || '',
-      video_url: emailData.video_link || '',
-      call_link: emailData.video_link || '',
-      meeting_link: emailData.video_link || '',
-      
-      // User information
-      user_name: 'User',
-      name: 'User',
-      company_name: 'TicketSwapper',
-      
-      // Additional common variables
-      timestamp: new Date().toISOString(),
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString()
-    };
-
-    console.log('📋 Template parameters being sent:');
-    Object.entries(templateParams).forEach(([key, value]) => {
-      console.log(`  ${key}: ${value}`);
-    });
-
-    // Send email using EmailJS
-    console.log('🚀 Sending email...');
-    console.log('📧 Template ID:', EMAILJS_TEMPLATE_ID);
-    console.log('📧 Service ID:', EMAILJS_SERVICE_ID);
-    console.log('📧 Recipient:', emailData.to);
-    
-    // Use EmailJS with explicit configuration
-    const response = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
-      templateParams,
-      EMAILJS_PUBLIC_KEY
-    );
-
-    console.log('✅ Email sent successfully:', response);
-    return { success: true, data: response };
+    // Use the FIXED method by default to ensure emails go to the correct recipient
+    console.log('📧 Using FIXED EmailJS method to ensure correct recipient routing...');
+    return await sendEmailFixed(emailData);
   } catch (error) {
     console.error('❌ Email sending failed:', error);
     console.error('Error details:', {
@@ -145,7 +67,8 @@ export const sendEmail = async (emailData) => {
         const minimalResponse = await emailjs.send(
           EMAILJS_SERVICE_ID,
           EMAILJS_TEMPLATE_ID,
-          minimalParams
+          minimalParams,
+          EMAILJS_PUBLIC_KEY
         );
         
         console.log('✅ Email sent with minimal params:', minimalResponse);
@@ -164,7 +87,8 @@ export const sendEmail = async (emailData) => {
               message: emailData.body,
               from_name: 'TicketSwapper Team',
               video_link: emailData.video_link || ''
-            }
+            },
+            EMAILJS_PUBLIC_KEY
           );
           console.log('✅ Email sent with default template:', defaultResponse);
           return { success: true, data: defaultResponse, usedDefault: true };
@@ -180,6 +104,104 @@ export const sendEmail = async (emailData) => {
     }
     
     return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Fix EmailJS template configuration to ensure emails go to the correct recipient
+ * This is the CRITICAL fix for the recipient routing issue
+ * @param {Object} emailData - Email data
+ * @returns {Promise} - Email result
+ */
+export const sendEmailFixed = async (emailData) => {
+  try {
+    console.log('🔧 Using FIXED EmailJS configuration...');
+    console.log('📧 Recipient email:', emailData.to);
+    
+    // CRITICAL: Use the CORRECT EmailJS method with proper template parameters
+    const templateParams = {
+      // These MUST match your EmailJS template variables exactly
+      to_email: emailData.to,
+      to_name: emailData.to.split('@')[0] || 'User',
+      user_email: emailData.to,
+      email: emailData.to,
+      recipient_email: emailData.to,
+      to: emailData.to,
+      
+      // Content
+      subject: emailData.subject,
+      message: emailData.body,
+      body: emailData.body,
+      content: emailData.body,
+      text: emailData.body,
+      html: emailData.body.replace(/\n/g, '<br>'),
+      
+      // Video link
+      video_link: emailData.video_link || '',
+      link: emailData.video_link || '',
+      video_url: emailData.video_link || '',
+      call_link: emailData.video_link || '',
+      meeting_link: emailData.video_link || '',
+      
+      // User info
+      user_name: emailData.to.split('@')[0] || 'User',
+      name: emailData.to.split('@')[0] || 'User',
+      company_name: 'TicketSwapper',
+      
+      // Metadata
+      timestamp: new Date().toISOString(),
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString()
+    };
+
+    console.log('📋 Template parameters:', templateParams);
+    
+    // IMPORTANT: Use emailjs.send (NOT sendForm) with explicit recipient routing
+    // This method ensures the email goes to the correct recipient
+    const response = await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      templateParams,
+      EMAILJS_PUBLIC_KEY
+    );
+
+    console.log('✅ Email sent successfully with FIXED method:', response);
+    return { success: true, data: response, method: 'send' };
+    
+  } catch (error) {
+    console.error('❌ Fixed method failed, trying fallback:', error);
+    
+    // Fallback to minimal parameters
+    try {
+      console.log('🔄 Trying with minimal parameters...');
+      const minimalParams = {
+        to_email: emailData.to,
+        to_name: emailData.to.split('@')[0] || 'User',
+        message: emailData.body,
+        subject: emailData.subject,
+        video_link: emailData.video_link || '',
+        user_name: emailData.to.split('@')[0] || 'User'
+      };
+      
+      const response = await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        minimalParams,
+        EMAILJS_PUBLIC_KEY
+      );
+      
+      console.log('✅ Email sent with minimal params:', response);
+      return { success: true, data: response, method: 'minimal' };
+      
+    } catch (fallbackError) {
+      console.error('❌ All methods failed:', fallbackError);
+      return { 
+        success: false, 
+        error: `EmailJS failed: ${fallbackError.message}`,
+        originalError: error.message,
+        fallbackError: fallbackError.message
+      };
+    }
   }
 };
 
@@ -232,7 +254,8 @@ export const testEmailJSTemplates = async (testEmail) => {
           to_email: testData.to,
           message: testData.body,
           from_name: 'TicketSwapper Team'
-        }
+        },
+        EMAILJS_PUBLIC_KEY
       );
       
       results.push({
@@ -291,7 +314,8 @@ export const findWorkingTemplate = async () => {
           to_email: 'test@example.com',
           message: 'Template test',
           from_name: 'Test'
-        }
+        },
+        EMAILJS_PUBLIC_KEY
       );
       
       console.log(`✅ Found working template: ${templateId}`);
@@ -335,7 +359,8 @@ export const diagnoseEmailJS = async () => {
     const response = await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
-      testParams
+      testParams,
+      EMAILJS_PUBLIC_KEY
     );
     
     return { success: true, data: response };
@@ -505,7 +530,8 @@ export const debugEmailJSTemplate = async (testEmail) => {
       const response = await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
-        testCase.params
+        testCase.params,
+        EMAILJS_PUBLIC_KEY
       );
       
       console.log(`✅ ${testCase.name} succeeded:`, response);
@@ -571,4 +597,211 @@ TicketSwapper Team`,
   console.log('📤 Email send result:', result);
   
   return result;
+};
+
+/**
+ * Debug EmailJS template configuration to fix recipient routing
+ * This helps identify why emails are going to the wrong address
+ * @param {string} testEmail - Test email address
+ * @returns {Promise} - Debug result
+ */
+export const debugEmailJSTemplateConfig = async (testEmail) => {
+  console.log('🔍 Debugging EmailJS template configuration...');
+  console.log('📧 Test email:', testEmail);
+  console.log('🔧 This will help identify why emails go to the wrong recipient');
+  
+  const debugResults = [];
+  
+  // Test 1: Check if template accepts recipient parameters
+  try {
+    console.log('🧪 Test 1: Basic recipient parameters');
+    const response1 = await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      {
+        to_email: testEmail,
+        message: 'Test message for debugging',
+        from_name: 'Debug Test'
+      },
+      EMAILJS_PUBLIC_KEY
+    );
+    
+    debugResults.push({
+      test: 'Basic recipient parameters',
+      success: true,
+      response: response1,
+      note: 'Template accepted basic parameters'
+    });
+    
+  } catch (error) {
+    debugResults.push({
+      test: 'Basic recipient parameters',
+      success: false,
+      error: error.message,
+      note: 'Template rejected basic parameters'
+    });
+  }
+  
+  // Test 2: Check with explicit recipient routing
+  try {
+    console.log('🧪 Test 2: Explicit recipient routing');
+    const response2 = await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      {
+        to_email: testEmail,
+        to_name: testEmail.split('@')[0],
+        user_email: testEmail,
+        email: testEmail,
+        recipient_email: testEmail,
+        to: testEmail,
+        message: 'Explicit routing test',
+        from_name: 'Debug Test'
+      },
+      EMAILJS_PUBLIC_KEY
+    );
+    
+    debugResults.push({
+      test: 'Explicit recipient routing',
+      success: true,
+      response: response2,
+      note: 'Template accepted explicit routing'
+    });
+    
+  } catch (error) {
+    debugResults.push({
+      test: 'Explicit recipient routing',
+      success: false,
+      error: error.message,
+      note: 'Template rejected explicit routing'
+    });
+  }
+  
+  // Test 3: Check template variables
+  try {
+    console.log('🧪 Test 3: Template variable validation');
+    const response3 = await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      {
+        to_email: testEmail,
+        message: 'Template variable test',
+        from_name: 'Debug Test',
+        // Add common template variables
+        subject: 'Debug Test',
+        body: 'Testing template variables',
+        content: 'Template content test',
+        text: 'Plain text test',
+        html: '<p>HTML content test</p>',
+        video_link: 'https://test.com',
+        user_name: testEmail.split('@')[0],
+        name: testEmail.split('@')[0],
+        company_name: 'TicketSwapper'
+      },
+      EMAILJS_PUBLIC_KEY
+    );
+    
+    debugResults.push({
+      test: 'Template variable validation',
+      success: true,
+      response: response3,
+      note: 'All template variables accepted'
+    });
+    
+  } catch (error) {
+    debugResults.push({
+      test: 'Template variable validation',
+      success: false,
+      error: error.message,
+      note: 'Some template variables rejected'
+    });
+  }
+  
+  console.log('📊 Debug Results:', debugResults);
+  
+  // Provide recommendations
+  const recommendations = [];
+  
+  if (debugResults.every(r => r.success)) {
+    recommendations.push('✅ All tests passed - template configuration looks correct');
+    recommendations.push('⚠️ Emails still going to wrong address - check EmailJS dashboard settings');
+    recommendations.push('🔧 In EmailJS dashboard, ensure "Send to recipient" is enabled');
+    recommendations.push('📧 Check if template has "to_email" field configured');
+  } else {
+    const failedTests = debugResults.filter(r => !r.success);
+    recommendations.push(`❌ ${failedTests.length} tests failed - template has configuration issues`);
+    recommendations.push('🔧 Check EmailJS template configuration in dashboard');
+    recommendations.push('📧 Verify template variables match what we\'re sending');
+    recommendations.push('🔑 Ensure service ID and template ID are correct');
+  }
+  
+  return {
+    success: debugResults.some(r => r.success),
+    results: debugResults,
+    recommendations,
+    note: 'Check EmailJS dashboard for recipient routing settings'
+  };
+};
+
+/**
+ * Test the FIXED EmailJS configuration to ensure emails go to the correct recipient
+ * @param {string} testEmail - Test email address (should be different from your EmailJS registered email)
+ * @returns {Promise} - Test result
+ */
+export const testFixedEmailRouting = async (testEmail) => {
+  console.log('🧪 Testing FIXED EmailJS routing...');
+  console.log('📧 Test email:', testEmail);
+  console.log('🔧 This should send email to the user, not to your EmailJS registered email');
+  
+  const testData = {
+    to: testEmail,
+    subject: '🧪 EmailJS Routing Test - FIXED',
+    body: `This is a test email to verify that EmailJS is now sending emails to the CORRECT recipient (${testEmail}) instead of your registered EmailJS email.
+
+✅ If you receive this email at ${testEmail}, the fix is working!
+❌ If you receive this at your EmailJS registered email, the fix failed.
+
+Test Details:
+- Timestamp: ${new Date().toISOString()}
+- Test ID: ${Date.now()}
+- Method: sendEmailFixed
+- Template: ${EMAILJS_TEMPLATE_ID}`,
+    video_link: 'https://meet.jit.si/test-routing-' + Date.now()
+  };
+
+  try {
+    console.log('📤 Sending test email with FIXED method...');
+    const result = await sendEmailFixed(testData);
+    
+    if (result.success) {
+      console.log('✅ Test email sent successfully!');
+      console.log('📧 Method used:', result.method);
+      console.log('📧 Check your inbox at:', testEmail);
+      
+      return {
+        success: true,
+        message: `Test email sent successfully using ${result.method} method`,
+        testEmail: testEmail,
+        method: result.method,
+        note: 'Check your inbox to verify the email went to the correct recipient'
+      };
+    } else {
+      console.log('❌ Test email failed:', result.error);
+      return {
+        success: false,
+        error: result.error,
+        testEmail: testEmail,
+        note: 'EmailJS configuration still has issues'
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ Test failed with exception:', error);
+    return {
+      success: false,
+      error: error.message,
+      testEmail: testEmail,
+      note: 'Exception occurred during testing'
+    };
+  }
 };

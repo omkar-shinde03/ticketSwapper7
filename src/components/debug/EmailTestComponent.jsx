@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS } from '@/utils/emailService';
+import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
   const [emailAddress, setEmailAddress] = useState('');
@@ -12,6 +12,7 @@ export const EmailTestComponent = () => {
   const [cspTestResult, setCspTestResult] = useState(null);
   const [templateTestResults, setTemplateTestResults] = useState(null);
   const [diagnosticResult, setDiagnosticResult] = useState(null);
+  const [workingTemplate, setWorkingTemplate] = useState(null);
   const { toast } = useToast();
 
   const handleDiagnoseEmailJS = async () => {
@@ -186,6 +187,35 @@ export const EmailTestComponent = () => {
     }
   };
 
+  const handleFindWorkingTemplate = async () => {
+    setIsLoading(true);
+    try {
+      const templateId = await findWorkingTemplate();
+      setWorkingTemplate(templateId);
+      
+      if (templateId) {
+        toast({
+          title: "Working Template Found! ✅",
+          description: `Template ID: ${templateId}`,
+        });
+      } else {
+        toast({
+          title: "No Working Templates Found! ❌",
+          description: "You may need to create a template in EmailJS dashboard",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Template Search Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
@@ -281,6 +311,24 @@ export const EmailTestComponent = () => {
           )}
         </div>
 
+        {/* Working Template Finder Section */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Find Working EmailJS Template</Label>
+          <Button 
+            onClick={handleFindWorkingTemplate} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Searching...' : 'Find Working EmailJS Template'}
+          </Button>
+          {workingTemplate && (
+            <div className="p-3 rounded-md text-sm bg-blue-50 text-blue-700 border border-blue-200">
+              <strong>Working Template ID:</strong> {workingTemplate}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="test-email">Test Email Address</Label>
           <Input
@@ -315,6 +363,7 @@ export const EmailTestComponent = () => {
           <p>• <strong>CSP Test:</strong> Check if Content Security Policy allows EmailJS</p>
           <p>• <strong>Template Test:</strong> Test all available EmailJS templates</p>
           <p>• <strong>Diagnostic Test:</strong> Run a comprehensive check for EmailJS configuration issues</p>
+          <p>• <strong>Find Working Template:</strong> Automatically discover the ID of a working EmailJS template</p>
           <p>• <strong>Test Email:</strong> Simple test message</p>
           <p>• <strong>KYC Email:</strong> Full KYC notification with video link</p>
           <p>• Check your inbox after clicking any button</p>

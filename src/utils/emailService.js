@@ -5,7 +5,7 @@ import emailjs from '@emailjs/browser';
 
 // EmailJS configuration
 const EMAILJS_SERVICE_ID = 'service_fhvlzuw';
-const EMAILJS_TEMPLATE_ID = '__ejs-test-mail-service__'; // Back to original template
+const EMAILJS_TEMPLATE_ID = 'template_nx4f94k'; // User's actual template ID
 const EMAILJS_PUBLIC_KEY = 'uAKdrHtZvlr7ohS46';
 
 // Initialize EmailJS
@@ -184,7 +184,8 @@ export const testEmailJSTemplates = async (testEmail) => {
 
   const templates = [
     { id: EMAILJS_TEMPLATE_ID, name: 'Your KYC Template' },
-    { id: 'template_default', name: 'Default Template' }
+    { id: 'template_default', name: 'Default Template' },
+    { id: 'template_contact', name: 'Contact Template' }
   ];
 
   const results = [];
@@ -230,6 +231,49 @@ export const testEmailJSTemplates = async (testEmail) => {
   }
 
   return results;
+};
+
+/**
+ * Find a working EmailJS template by trying common template IDs
+ * @returns {Promise} - Working template ID or null
+ */
+export const findWorkingTemplate = async () => {
+  const commonTemplateIds = [
+    'template_default',
+    'template_contact',
+    'template_support',
+    'template_kyc',
+    'template_verification',
+    'template_notification'
+  ];
+
+  console.log('🔍 Searching for working EmailJS template...');
+
+  for (const templateId of commonTemplateIds) {
+    try {
+      console.log(`Trying template: ${templateId}`);
+      
+      const response = await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        templateId,
+        {
+          to_email: 'test@example.com',
+          message: 'Template test',
+          from_name: 'Test'
+        }
+      );
+      
+      console.log(`✅ Found working template: ${templateId}`);
+      return templateId;
+      
+    } catch (error) {
+      console.log(`❌ Template ${templateId} failed:`, error.text || error.message);
+      continue;
+    }
+  }
+  
+  console.log('❌ No working templates found');
+  return null;
 };
 
 /**

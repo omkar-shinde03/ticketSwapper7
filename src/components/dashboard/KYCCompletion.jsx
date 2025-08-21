@@ -424,6 +424,18 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         <CardDescription>
           Complete your KYC verification to start selling tickets safely
         </CardDescription>
+        {/* Temporary debug button */}
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            console.log('Current user:', user);
+            alert(`User ID: ${user?.id || 'Not found'}\nEmail: ${user?.email || 'Not found'}`);
+          }}
+        >
+          Debug: Show My User ID
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         {!documentExists ? (

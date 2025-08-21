@@ -29,7 +29,7 @@ SELECT
     created_at,
     last_sign_in_at
 FROM auth.users 
-WHERE id = 'YOUR_USER_ID_HERE'; -- Replace this with actual user ID
+WHERE id = '87205b2c-b4db-4bd2-9f04-c4fa56453f77'; -- Replace this with actual user ID
 
 -- 4. Check if there are any foreign key constraints that might be failing
 SELECT 
@@ -84,13 +84,17 @@ SELECT
     current_setting('role'),
     current_setting('request.jwt.claims', true) as jwt_claims;
 
--- 8. Show any recent errors in the database logs (if available)
+-- 8. Show current database activity (if available)
 -- Note: This might not work in all Supabase plans
 SELECT 
-    log_time,
-    log_level,
-    message
+    pid,
+    usename,
+    application_name,
+    client_addr,
+    state,
+    query_start,
+    state_change
 FROM pg_stat_activity 
 WHERE state = 'active' 
-ORDER BY log_time DESC 
+ORDER BY query_start DESC 
 LIMIT 10;

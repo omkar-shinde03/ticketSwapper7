@@ -74,7 +74,14 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     async function fetchPendingVideoKYC() {
       const { data, error } = await supabase
         .from('video_calls')
-        .select('id, user_id, status, created_at, profiles:user_id(full_name, email, phone, kyc_status), call_link')
+        .select(`
+          id, 
+          user_id, 
+          status, 
+          created_at, 
+          call_link,
+          profiles!user_id(full_name, email, phone, kyc_status)
+        `)
         .eq('status', 'waiting_admin')
         .order('created_at', { ascending: false });
       if (!error) setPendingVideoKYCRequests(data || []);

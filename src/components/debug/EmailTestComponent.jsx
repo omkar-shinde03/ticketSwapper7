@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { sendKYCEmail, testEmail, testCSP } from '@/utils/emailService';
+import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
   const [testEmail, setTestEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [cspTestResult, setCspTestResult] = useState(null);
+  const [templateTestResults, setTemplateTestResults] = useState(null);
   const { toast } = useToast();
 
   const handleTestCSP = async () => {
@@ -33,6 +34,45 @@ export const EmailTestComponent = () => {
     } catch (error) {
       toast({
         title: "CSP Test Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTestTemplates = async () => {
+    if (!testEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter a test email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const results = await testEmailJSTemplates(testEmail);
+      setTemplateTestResults(results);
+      
+      const workingTemplates = results.filter(r => r.success);
+      if (workingTemplates.length > 0) {
+        toast({
+          title: "Template Test Complete! ✅",
+          description: `${workingTemplates.length} template(s) are working. Check results below.`,
+        });
+      } else {
+        toast({
+          title: "No Working Templates Found! ❌",
+          description: "All templates failed. Check your EmailJS configuration.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Template Test Error",
         description: `Error: ${error.message}`,
         variant: "destructive",
       });
@@ -156,6 +196,33 @@ export const EmailTestComponent = () => {
           )}
         </div>
 
+        {/* Template Test Section */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">EmailJS Template Test</Label>
+          <Button 
+            onClick={handleTestTemplates} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Testing...' : 'Test All EmailJS Templates'}
+          </Button>
+          {templateTestResults && (
+            <div className="space-y-2">
+              {templateTestResults.map((result, index) => (
+                <div key={index} className={`p-2 rounded-md text-xs ${
+                  result.success 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  <strong>{result.template}:</strong> {result.success ? '✅ Working' : `❌ ${result.error}`}
+                  {result.status && <span className="ml-2">(Status: {result.status})</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="test-email">Test Email Address</Label>
           <Input
@@ -188,6 +255,7 @@ export const EmailTestComponent = () => {
         
         <div className="text-sm text-gray-600">
           <p>• <strong>CSP Test:</strong> Check if Content Security Policy allows EmailJS</p>
+          <p>• <strong>Template Test:</strong> Test all available EmailJS templates</p>
           <p>• <strong>Test Email:</strong> Simple test message</p>
           <p>• <strong>KYC Email:</strong> Full KYC notification with video link</p>
           <p>• Check your inbox after clicking any button</p>

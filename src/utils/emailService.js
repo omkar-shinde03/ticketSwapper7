@@ -29,7 +29,7 @@ export const sendEmail = async (emailData) => {
     
     // Try multiple template variable formats to match common EmailJS templates
     const templateParams = {
-      // Standard EmailJS variables
+      // Standard EmailJS variables (most common)
       to_email: emailData.to,
       to_name: 'User',
       from_name: 'TicketSwapper Team',
@@ -48,7 +48,19 @@ export const sendEmail = async (emailData) => {
       // Additional common variables
       user_email: emailData.to,
       user_name: 'User',
-      company_name: 'TicketSwapper'
+      company_name: 'TicketSwapper',
+      
+      // Try these common EmailJS template variables
+      email: emailData.to,
+      name: 'User',
+      text: emailData.body,
+      html: emailData.body.replace(/\n/g, '<br>'),
+      
+      // For the specific template you're using
+      user_email: emailData.to,
+      user_name: 'User',
+      message: emailData.body,
+      video_link: emailData.video_link || 'No video link provided'
     };
 
     console.log('Template parameters:', templateParams);
@@ -83,24 +95,60 @@ export const sendEmail = async (emailData) => {
       };
     }
     
-    // Try with default EmailJS template as fallback
-    try {
-      console.log('Trying with default EmailJS template...');
-      const defaultResponse = await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        'template_default', // Try default template
-        {
+    // Check if it's a 400 Bad Request error (template/parameter issue)
+    if (error.status === 400) {
+      console.error('400 Bad Request - Template or parameter issue detected');
+      console.error('This usually means:');
+      console.error('1. Template ID is incorrect');
+      console.error('2. Required template variables are missing');
+      console.error('3. Service ID is incorrect');
+      
+      // Try with minimal template variables
+      try {
+        console.log('Trying with minimal template variables...');
+        const minimalParams = {
           to_email: emailData.to,
           message: emailData.body,
           from_name: 'TicketSwapper Team'
+        };
+        
+        const minimalResponse = await emailjs.send(
+          EMAILJS_SERVICE_ID,
+          EMAILJS_TEMPLATE_ID,
+          minimalParams
+        );
+        
+        console.log('Email sent with minimal params:', minimalResponse);
+        return { success: true, data: minimalResponse, usedMinimal: true };
+      } catch (minimalError) {
+        console.error('Minimal params also failed:', minimalError);
+        
+        // Try with default EmailJS template as last resort
+        try {
+          console.log('Trying with default EmailJS template...');
+          const defaultResponse = await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            'template_default', // Try default template
+            {
+              to_email: emailData.to,
+              message: emailData.body,
+              from_name: 'TicketSwapper Team'
+            }
+          );
+          console.log('Email sent with default template:', defaultResponse);
+          return { success: true, data: defaultResponse, usedDefault: true };
+        } catch (defaultError) {
+          console.error('Default template also failed:', defaultError);
+          return { 
+            success: false, 
+            error: `Template error: ${error.message}. Please check your EmailJS template configuration.`,
+            templateError: true 
+          };
         }
-      );
-      console.log('Email sent with default template:', defaultResponse);
-      return { success: true, data: defaultResponse, usedDefault: true };
-    } catch (defaultError) {
-      console.error('Default template also failed:', defaultError);
-      return { success: false, error: error.message };
+      }
     }
+    
+    return { success: false, error: error.message };
   }
 };
 
@@ -119,6 +167,67 @@ export const sendKYCEmail = async (userEmail, videoLink) => {
   };
 
   return await sendEmail(emailData);
+};
+
+/**
+ * Test different EmailJS templates to find one that works
+ * @param {string} testEmail - Test email address
+ * @returns {Promise} - Template test results
+ */
+export const testEmailJSTemplates = async (testEmail) => {
+  const testData = {
+    to: testEmail,
+    subject: 'Template Test',
+    body: 'Testing different EmailJS templates',
+    video_link: 'https://test-video-call.com'
+  };
+
+  const templates = [
+    { id: EMAILJS_TEMPLATE_ID, name: 'Current Template' },
+    { id: 'template_default', name: 'Default Template' },
+    { id: 'template_contact', name: 'Contact Template' },
+    { id: 'template_support', name: 'Support Template' }
+  ];
+
+  const results = [];
+
+  for (const template of templates) {
+    try {
+      console.log(`Testing template: ${template.name} (${template.id})`);
+      
+      const response = await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        template.id,
+        {
+          to_email: testData.to,
+          message: testData.body,
+          from_name: 'TicketSwapper Team'
+        }
+      );
+      
+      results.push({
+        template: template.name,
+        id: template.id,
+        success: true,
+        response: response
+      });
+      
+      console.log(`✅ ${template.name} worked!`);
+      
+    } catch (error) {
+      results.push({
+        template: template.name,
+        id: template.id,
+        success: false,
+        error: error.message,
+        status: error.status
+      });
+      
+      console.log(`❌ ${template.name} failed:`, error.message);
+    }
+  }
+
+  return results;
 };
 
 /**

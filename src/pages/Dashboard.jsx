@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bus, LogOut, User, MessageSquare } from "lucide-react";
+import { Bus, LogOut, User, MessageSquare, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { SellTicketForm } from "@/components/dashboard/SellTicketForm";
@@ -183,6 +183,11 @@ const Dashboard = () => {
                 Complete KYC
               </Button>
             )}
+            {profile?.kyc_status === 'verified' && (
+              <div className="flex items-center text-green-600 text-sm mt-2">
+                <CheckCircle className="h-4 w-4 mr-1" /> KYC Verified
+              </div>
+            )}
           </div>
         </div>
 
@@ -195,6 +200,25 @@ const Dashboard = () => {
               window.location.reload();
             }} 
           />
+        )}
+
+        {/* KYC Verification Success Message */}
+        {profile?.kyc_status === 'verified' && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-green-800">
+                  🎉 KYC Verification Complete!
+                </h3>
+                <p className="text-sm text-green-700 mt-1">
+                  Your account has been verified successfully. You can now access all platform features including buying and selling tickets.
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

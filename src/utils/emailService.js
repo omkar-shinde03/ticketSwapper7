@@ -22,15 +22,36 @@ emailjs.init(EMAILJS_PUBLIC_KEY);
  */
 export const sendEmail = async (emailData) => {
   try {
-    // Prepare template parameters
+    console.log('Attempting to send email with EmailJS...');
+    console.log('Service ID:', EMAILJS_SERVICE_ID);
+    console.log('Template ID:', EMAILJS_TEMPLATE_ID);
+    console.log('Public Key:', EMAILJS_PUBLIC_KEY);
+    
+    // Try multiple template variable formats to match common EmailJS templates
     const templateParams = {
+      // Standard EmailJS variables
       to_email: emailData.to,
+      to_name: 'User',
+      from_name: 'TicketSwapper Team',
+      reply_to: 'no-reply@ticketswapper.com',
+      
+      // Common template variables
       subject: emailData.subject,
       message: emailData.body,
+      body: emailData.body,
+      content: emailData.body,
+      
+      // Video link variables
       video_link: emailData.video_link || '',
-      from_name: 'TicketSwapper Team',
-      reply_to: 'no-reply@ticketswapper.com'
+      link: emailData.video_link || '',
+      
+      // Additional common variables
+      user_email: emailData.to,
+      user_name: 'User',
+      company_name: 'TicketSwapper'
     };
+
+    console.log('Template parameters:', templateParams);
 
     // Send email using EmailJS
     const response = await emailjs.send(
@@ -43,7 +64,30 @@ export const sendEmail = async (emailData) => {
     return { success: true, data: response };
   } catch (error) {
     console.error('Email sending failed:', error);
-    return { success: false, error: error.message };
+    console.error('Error details:', {
+      message: error.message,
+      text: error.text,
+      status: error.status
+    });
+    
+    // Try with default EmailJS template as fallback
+    try {
+      console.log('Trying with default EmailJS template...');
+      const defaultResponse = await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        'template_default', // Try default template
+        {
+          to_email: emailData.to,
+          message: emailData.body,
+          from_name: 'TicketSwapper Team'
+        }
+      );
+      console.log('Email sent with default template:', defaultResponse);
+      return { success: true, data: defaultResponse, usedDefault: true };
+    } catch (defaultError) {
+      console.error('Default template also failed:', defaultError);
+      return { success: false, error: error.message };
+    }
   }
 };
 
@@ -67,7 +111,7 @@ export const sendKYCEmail = async (userEmail, videoLink) => {
 /**
  * Test email functionality
  * @param {string} testEmail - Test email address
- * @returns {Promise} - Test result
+ * @returns {Promise} - Email result
  */
 export const testEmail = async (testEmail) => {
   const emailData = {

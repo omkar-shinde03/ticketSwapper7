@@ -79,11 +79,35 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
           user_id, 
           status, 
           created_at, 
-          call_link,
-          profiles!user_id(full_name, email, phone, kyc_status)
+          call_link
         `)
         .eq('status', 'waiting_admin')
         .order('created_at', { ascending: false });
+      
+      // If we have data, fetch the related profile information separately
+      if (data && !error) {
+        const userIds = data.map(call => call.user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone, kyc_status')
+            .in('id', userIds);
+          
+          if (!profilesError && profilesData) {
+            // Merge the profile data with video calls data
+            const enrichedData = data.map(call => {
+              const profile = profilesData.find(p => p.id === call.user_id);
+              return {
+                ...call,
+                profile: profile || null
+              };
+            });
+            setPendingVideoKYCRequests(enrichedData);
+            return;
+          }
+        }
+      }
+      
       if (!error) setPendingVideoKYCRequests(data || []);
     }
     fetchPendingVideoKYC();
@@ -443,8 +467,8 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
                           <User className="h-5 w-5 text-gray-600" />
                         </div>
                         <div>
-                          <h4 className="font-medium">{req.profiles?.full_name || req.profiles?.email}</h4>
-                          <p className="text-sm text-gray-500">{req.profiles?.phone || 'No phone'}</p>
+                          <h4 className="font-medium">{req.profile?.full_name || req.profile?.email || 'Unknown User'}</h4>
+                          <p className="text-sm text-gray-500">{req.profile?.phone || 'No phone'}</p>
                           <Badge variant="outline" className="text-orange-700 bg-orange-100">Pending Review</Badge>
                           {req.call_link && (
                             <div className="mt-2">
@@ -482,7 +506,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
         <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
           <DialogContent className="max-w-6xl h-[90vh]">
             <DialogHeader>
-              <DialogTitle>KYC Video Verification - {activeCall?.full_name || activeCall?.email}</DialogTitle>
+              <DialogTitle>KYC Video Verification - {activeCall?.profile?.full_name || activeCall?.profile?.email || 'Unknown User'}</DialogTitle>
               <DialogDescription>
                 Verify the user's identity by examining their Aadhaar card
               </DialogDescription>
@@ -499,7 +523,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
                   aria-label="User video preview"
                 />
                 <div className="absolute bottom-2 left-2 text-white text-sm bg-black/50 px-2 py-1 rounded">
-                  User: {activeCall?.full_name || activeCall?.email}
+                  User: {activeCall?.profile?.full_name || activeCall?.profile?.email || 'Unknown User'}
                 </div>
                 <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
                   <div className="text-center">

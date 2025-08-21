@@ -24,7 +24,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   global: {
     headers: {
       'X-Client-Info': 'supabase-js-web',
-      'Accept': 'application/json', // Ensure correct Accept header for all requests
     }
   }
 });

@@ -29,44 +29,91 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
   const [videoKYCRequested, setVideoKYCRequested] = useState(false);
   const [videoKYCRequestId, setVideoKYCRequestId] = useState(null);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
+  // Check authentication status first
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          setAuthError('User not authenticated');
+          console.warn('Authentication error:', error);
+        } else {
+          setAuthError(null);
+        }
+      } catch (err) {
+        setAuthError('Authentication check failed');
+        console.error('Auth check exception:', err);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    }
+    checkAuth();
+  }, []);
 
   // Check if user has already uploaded a document on mount
   useEffect(() => {
     async function checkDocument() {
-      if (!profile?.id) return;
-      const { data, error } = await supabase
-        .from('user_documents')
-        .select('id')
-        .eq('user_id', profile.id)
-        .limit(1)
-        .single();
-      setDocumentExists(!!data && !error);
+      if (!profile?.id || isCheckingAuth || authError) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_documents')
+          .select('id')
+          .eq('user_id', profile.id)
+          .limit(1)
+          .single();
+        
+        if (error) {
+          console.warn('Error checking document:', error);
+          setDocumentExists(false);
+        } else {
+          setDocumentExists(!!data);
+        }
+      } catch (err) {
+        console.warn('Exception checking document:', err);
+        setDocumentExists(false);
+      }
     }
     checkDocument();
-  }, [profile?.id]);
+  }, [profile?.id, isCheckingAuth, authError]);
 
   // Check if user already has a pending/in-progress video KYC request
   useEffect(() => {
     async function checkVideoKYCRequest() {
-      if (!profile?.id) return;
-      const { data, error } = await supabase
-        .from('video_calls')
-        .select('id, status')
-        .eq('user_id', profile.id)
-        .in('status', ['waiting_admin', 'admin_connected', 'in_call'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      if (data && !error) {
-        setVideoKYCRequested(true);
-        setVideoKYCRequestId(data.id);
-      } else {
+      if (!profile?.id || isCheckingAuth || authError) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('video_calls')
+          .select('id, status')
+          .eq('user_id', profile.id)
+          .in('status', ['waiting_admin', 'admin_connected', 'in_call'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (error) {
+          console.warn('Error checking video KYC request:', error);
+          setVideoKYCRequested(false);
+          setVideoKYCRequestId(null);
+        } else if (data) {
+          setVideoKYCRequested(true);
+          setVideoKYCRequestId(data.id);
+        } else {
+          setVideoKYCRequested(false);
+          setVideoKYCRequestId(null);
+        }
+      } catch (err) {
+        console.warn('Exception checking video KYC request:', err);
         setVideoKYCRequested(false);
         setVideoKYCRequestId(null);
       }
     }
     checkVideoKYCRequest();
-  }, [profile?.id]);
+  }, [profile?.id, isCheckingAuth, authError]);
 
   // Handler for requesting video KYC
   const handleRequestVideoKYC = async () => {
@@ -302,6 +349,48 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
 
   if (profile?.kyc_status === 'verified') {
     return null;
+  }
+
+  // Show loading state while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-orange-500" />
+            Complete KYC Verification
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground mt-2">Checking authentication...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show error state if authentication failed
+  if (authError) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            Authentication Error
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{authError}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="outline"
+          >
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

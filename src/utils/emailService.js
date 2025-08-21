@@ -5,7 +5,7 @@ import emailjs from '@emailjs/browser';
 
 // EmailJS configuration
 const EMAILJS_SERVICE_ID = 'service_fhvlzuw';
-const EMAILJS_TEMPLATE_ID = 'template_default'; // Changed to standard template
+const EMAILJS_TEMPLATE_ID = '__ejs-test-mail-service__'; // Back to original template
 const EMAILJS_PUBLIC_KEY = 'uAKdrHtZvlr7ohS46';
 
 // Initialize EmailJS
@@ -183,11 +183,8 @@ export const testEmailJSTemplates = async (testEmail) => {
   };
 
   const templates = [
-    { id: EMAILJS_SERVICE_ID, name: 'Service Test' },
-    { id: 'template_default', name: 'Default Template' },
-    { id: 'template_contact', name: 'Contact Template' },
-    { id: 'template_support', name: 'Support Template' },
-    { id: 'template_kyc', name: 'KYC Template' }
+    { id: EMAILJS_TEMPLATE_ID, name: 'Your KYC Template' },
+    { id: 'template_default', name: 'Default Template' }
   ];
 
   const results = [];
@@ -216,19 +213,71 @@ export const testEmailJSTemplates = async (testEmail) => {
       console.log(`✅ ${template.name} worked!`);
       
     } catch (error) {
+      console.error(`❌ ${template.name} failed:`, error);
+      console.error('Full error object:', error);
+      console.error('Error status:', error.status);
+      console.error('Error text:', error.text);
+      console.error('Error message:', error.message);
+      
       results.push({
         template: template.name,
         id: template.id,
         success: false,
-        error: error.message,
+        error: error.text || error.message || 'Unknown error',
         status: error.status
       });
-      
-      console.log(`❌ ${template.name} failed:`, error.message);
     }
   }
 
   return results;
+};
+
+/**
+ * Diagnose EmailJS account configuration
+ * @returns {Object} - Diagnostic results
+ */
+export const diagnoseEmailJS = async () => {
+  try {
+    console.log('🔍 Diagnosing EmailJS configuration...');
+    console.log('Service ID:', EMAILJS_SERVICE_ID);
+    console.log('Template ID:', EMAILJS_TEMPLATE_ID);
+    console.log('Public Key:', EMAILJS_PUBLIC_KEY);
+    
+    // Test basic EmailJS initialization
+    if (!emailjs.init) {
+      return { success: false, error: 'EmailJS not properly loaded' };
+    }
+    
+    // Test with minimal parameters
+    const testParams = {
+      to_email: 'test@example.com',
+      message: 'Test message',
+      from_name: 'Test'
+    };
+    
+    console.log('Testing with minimal parameters:', testParams);
+    
+    const response = await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      testParams
+    );
+    
+    return { success: true, data: response };
+    
+  } catch (error) {
+    console.error('EmailJS diagnosis failed:', error);
+    return {
+      success: false,
+      error: error.text || error.message || 'Unknown error',
+      status: error.status,
+      details: {
+        serviceId: EMAILJS_SERVICE_ID,
+        templateId: EMAILJS_TEMPLATE_ID,
+        publicKey: EMAILJS_PUBLIC_KEY
+      }
+    };
+  }
 };
 
 /**

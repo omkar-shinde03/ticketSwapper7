@@ -4,14 +4,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates } from '@/utils/emailService';
+import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
   const [emailAddress, setEmailAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [cspTestResult, setCspTestResult] = useState(null);
   const [templateTestResults, setTemplateTestResults] = useState(null);
+  const [diagnosticResult, setDiagnosticResult] = useState(null);
   const { toast } = useToast();
+
+  const handleDiagnoseEmailJS = async () => {
+    setIsLoading(true);
+    try {
+      const result = await diagnoseEmailJS();
+      setDiagnosticResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "EmailJS Diagnosis Passed! ✅",
+          description: "EmailJS configuration is working correctly.",
+        });
+      } else {
+        toast({
+          title: "EmailJS Diagnosis Failed! ❌",
+          description: `Error: ${result.error} (Status: ${result.status})`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Diagnosis Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleTestCSP = async () => {
     setIsLoading(true);
@@ -223,6 +253,34 @@ export const EmailTestComponent = () => {
           )}
         </div>
 
+        {/* Diagnostic Test Section */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">EmailJS Diagnostic Test</Label>
+          <Button 
+            onClick={handleDiagnoseEmailJS} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Diagnosing...' : 'Run EmailJS Diagnostic'}
+          </Button>
+          {diagnosticResult && (
+            <div className={`p-3 rounded-md text-sm ${
+              diagnosticResult.success 
+                ? 'bg-green-50 text-green-700 border border-green-200' 
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              <strong>{diagnosticResult.success ? '✅ ' : '❌ '}</strong>
+              {diagnosticResult.message}
+              {diagnosticResult.error && (
+                <div className="mt-2 text-xs">
+                  <strong>Error:</strong> {diagnosticResult.error}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="test-email">Test Email Address</Label>
           <Input
@@ -256,6 +314,7 @@ export const EmailTestComponent = () => {
         <div className="text-sm text-gray-600">
           <p>• <strong>CSP Test:</strong> Check if Content Security Policy allows EmailJS</p>
           <p>• <strong>Template Test:</strong> Test all available EmailJS templates</p>
+          <p>• <strong>Diagnostic Test:</strong> Run a comprehensive check for EmailJS configuration issues</p>
           <p>• <strong>Test Email:</strong> Simple test message</p>
           <p>• <strong>KYC Email:</strong> Full KYC notification with video link</p>
           <p>• Check your inbox after clicking any button</p>

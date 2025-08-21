@@ -228,19 +228,26 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         console.error('Error hint:', videoCallError.hint);
         throw videoCallError;
       }
-      // Email the link to the user
+      // Email the link to the user using EmailJS
       console.log('Sending video KYC link to:', user.user.email, callLink);
-      const { error: emailError } = await supabase.functions.invoke("send-email", {
-        body: {
-          to: user.user.email,
-          subject: "Your Video KYC Call Link",
-          body: `Dear User,\n\nYour video KYC verification call is ready. Please join the call at your scheduled time using the link below:\n\n${callLink}\n\nThank you,\nTicketSwapper Team`,
-          video_link: callLink
-        },
-      });
       
-      if (emailError) {
-        console.error('Email sending failed:', emailError);
+      try {
+        // Import the email service dynamically to avoid build issues
+        const { sendKYCEmail } = await import('@/utils/emailService');
+        const emailResult = await sendKYCEmail(user.user.email, callLink);
+        
+        if (!emailResult.success) {
+          console.error('Email sending failed:', emailResult.error);
+          toast({
+            title: "Warning",
+            description: "Document uploaded successfully, but email notification failed. Please check your email manually.",
+            variant: "destructive",
+          });
+        } else {
+          console.log('Email sent successfully');
+        }
+      } catch (emailError) {
+        console.error('Email service error:', emailError);
         toast({
           title: "Warning",
           description: "Document uploaded successfully, but email notification failed. Please check your email manually.",

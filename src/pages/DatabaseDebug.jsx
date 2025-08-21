@@ -7,6 +7,7 @@ import { DatabaseHealthChecker } from '@/components/debug/DatabaseHealthChecker'
 import { DatabaseMigrationHelper } from '@/components/debug/DatabaseMigrationHelper';
 import { PNRDebugPanel } from '@/components/debug/PNRDebugPanel';
 import { DeploymentChecklist } from '@/components/debug/DeploymentChecklist';
+import { EmailTestComponent } from '@/components/debug/EmailTestComponent';
 
 const DatabaseDebug = () => {
   const navigate = useNavigate();
@@ -35,11 +36,12 @@ const DatabaseDebug = () => {
         </div>
 
         <Tabs defaultValue="health" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="health">Health Check</TabsTrigger>
             <TabsTrigger value="migrations">Migrations</TabsTrigger>
             <TabsTrigger value="api-debug">API Debug</TabsTrigger>
             <TabsTrigger value="deployment">Deployment</TabsTrigger>
+            <TabsTrigger value="email-test">Email Test</TabsTrigger>
           </TabsList>
 
           <TabsContent value="health">
@@ -56,6 +58,20 @@ const DatabaseDebug = () => {
 
           <TabsContent value="deployment">
             <DeploymentChecklist />
+          </TabsContent>
+          
+          <TabsContent value="email-test">
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Email Integration Test
+                </h2>
+                <p className="text-muted-foreground">
+                  Test EmailJS integration to ensure emails are working before using KYC functionality
+                </p>
+              </div>
+              <EmailTestComponent />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

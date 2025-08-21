@@ -109,9 +109,9 @@ export const EnhancedAdminPanel = () => {
     setKycLoading(true);
     try {
       const { error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .update({ kyc_status: kycStatus })
-        .eq('user_id', userId);
+        .eq('id', userId);
       if (error) throw error;
       await logAdminAction('KYC_UPDATE', 'user', userId, { kycStatus });
       toast({ title: 'KYC Updated', description: 'User KYC status has been updated successfully.' });
@@ -129,18 +129,16 @@ export const EnhancedAdminPanel = () => {
     if (selectedUserIds.length === 0) return;
     try {
       const { error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .update({ kyc_status: kycStatus })
-        .in('user_id', selectedUserIds);
+        .in('id', selectedUserIds);
       if (error) throw error;
-      for (const userId of selectedUserIds) {
-        await logAdminAction('KYC_UPDATE', 'user', userId, { kycStatus });
-      }
-      toast({ title: `Bulk KYC ${kycStatus}`, description: `KYC status updated for selected users.` });
+      await logAdminAction('BULK_KYC_UPDATE', 'users', selectedUserIds.join(','), { kycStatus });
+      toast({ title: 'Bulk KYC Update', description: `${selectedUserIds.length} users KYC status updated to ${kycStatus}.` });
       setSelectedUserIds([]);
       loadDashboardData();
     } catch (error) {
-      toast({ title: 'Error', description: 'Bulk KYC update failed.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to update KYC status.', variant: 'destructive' });
     } finally {
       setKycLoading(false);
     }

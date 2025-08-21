@@ -162,31 +162,51 @@ const Dashboard = () => {
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900">KYC Status</h3>
-            <p className="text-lg font-semibold text-orange-600 capitalize">{profile?.kyc_status || 'Not Verified'}</p>
-            <p className="text-sm text-gray-500 mb-3">Verification</p>
-            {(!profile?.kyc_status || profile?.kyc_status === 'not_verified') && (
-              <Button 
-                onClick={() => setShowKYC(true)}
-                size="sm"
-                className="w-full"
-              >
-                Complete KYC
-              </Button>
-            )}
-            {profile?.kyc_status === 'pending' && (
-              <Button 
-                onClick={() => setShowKYC(true)}
-                size="sm"
-                className="w-full"
-                variant="outline"
-              >
-                Complete KYC
-              </Button>
-            )}
-            {profile?.kyc_status === 'verified' && (
-              <div className="flex items-center text-green-600 text-sm mt-2">
-                <CheckCircle className="h-4 w-4 mr-1" /> KYC Verified
-              </div>
+            {profile?.kyc_status === 'verified' ? (
+              <>
+                <p className="text-3xl font-bold text-green-600">Verified</p>
+                <p className="text-sm text-gray-500 mb-3">KYC Complete</p>
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <p className="text-sm text-green-700 font-medium">
+                    ✅ Your account is fully verified and ready for all features
+                  </p>
+                </div>
+              </>
+            ) : profile?.kyc_status === 'rejected' ? (
+              <>
+                <p className="text-3xl font-bold text-red-600">Rejected</p>
+                <p className="text-sm text-gray-500 mb-3">Verification Failed</p>
+                <Button 
+                  onClick={() => setShowKYC(true)}
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  Try Again
+                </Button>
+              </>
+            ) : profile?.kyc_status === 'pending' ? (
+              <>
+                <p className="text-3xl font-bold text-orange-600">Pending</p>
+                <p className="text-sm text-gray-500 mb-3">Under Review</p>
+                <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                  <p className="text-sm text-orange-700">
+                    ⏳ Your KYC documents are being reviewed by our admin team
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-3xl font-bold text-gray-600">Not Verified</p>
+                <p className="text-sm text-gray-500 mb-3">Verification Required</p>
+                <Button 
+                  onClick={() => setShowKYC(true)}
+                  size="sm"
+                  className="w-full"
+                >
+                  Complete KYC
+                </Button>
+              </>
             )}
           </div>
         </div>

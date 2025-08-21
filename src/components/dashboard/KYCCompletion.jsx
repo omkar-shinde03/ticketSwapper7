@@ -385,8 +385,71 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
     }
   };
 
+  // If user is already verified, show success message
   if (profile?.kyc_status === 'verified') {
-    return null;
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          <CardTitle className="text-2xl text-green-700">KYC Verification Complete! 🎉</CardTitle>
+          <CardDescription>
+            Your account has been successfully verified. You can now access all platform features.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="font-medium text-green-800 mb-2">What's Next?</h4>
+            <ul className="text-sm text-green-700 space-y-1 text-left">
+              <li>✅ Buy and sell tickets without restrictions</li>
+              <li>✅ Access enhanced security features</li>
+              <li>✅ Enjoy full platform functionality</li>
+            </ul>
+          </div>
+          <p className="text-sm text-gray-600">
+            Your verification was completed on {new Date(profile.updated_at || profile.created_at).toLocaleDateString()}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If user is rejected, show rejection message with retry option
+  if (profile?.kyc_status === 'rejected') {
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <CardTitle className="text-2xl text-red-700">KYC Verification Rejected</CardTitle>
+          <CardDescription>
+            Your KYC verification was not approved. Please review and try again.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-medium text-red-800 mb-2">Common Reasons for Rejection:</h4>
+            <ul className="text-sm text-red-700 space-y-1 text-left">
+              <li>• Document image is unclear or blurry</li>
+              <li>• Document information doesn't match profile</li>
+              <li>• Expired or invalid document</li>
+              <li>• Document type not accepted</li>
+            </ul>
+          </div>
+          <Button 
+            onClick={() => {
+              setUploadStep('upload');
+              setUploadedFile(null);
+            }}
+            className="w-full"
+          >
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   // Show loading state while checking authentication

@@ -176,7 +176,14 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         throw uploadError;
       }
       // Insert document record into user_documents table
-      const { data: user } = await supabase.auth.getUser();
+      const { data: user, error: userError } = await supabase.auth.getUser();
+      if (userError || !user?.user?.id) {
+        throw new Error(`Authentication error: ${userError?.message || 'User not found'}`);
+      }
+      
+      console.log('Authenticated user:', user.user);
+      console.log('User ID for document insert:', user.user.id);
+      
       const { error: dbError } = await supabase
         .from("user_documents")
         .insert({
@@ -190,20 +197,35 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           verification_status: "pending",
         });
       if (dbError) {
+        console.error('Document insert error:', dbError);
         throw dbError;
       }
       // Generate Jitsi link and create video_calls row
       const callLink = generateJitsiKycLink();
+      
+      // Debug: Log the data being sent
+      const insertData = {
+        user_id: user.user.id,
+        status: "waiting_admin",
+        call_type: "kyc_verification",
+        call_link: callLink,
+      };
+      console.log('Attempting to insert video call with data:', insertData);
+      console.log('User object:', user);
+      console.log('User ID type:', typeof user.user.id);
+      console.log('User ID value:', user.user.id);
+      
       const { data: videoCall, error: videoCallError } = await supabase
         .from("video_calls")
-        .insert({
-          user_id: user.user.id,
-          status: "waiting_admin",
-          call_type: "kyc_verification",
-          call_link: callLink,
-        })
+        .insert(insertData)
         .select("id");
+      
       if (videoCallError) {
+        console.error('Video call insert error details:', videoCallError);
+        console.error('Error code:', videoCallError.code);
+        console.error('Error message:', videoCallError.message);
+        console.error('Error details:', videoCallError.details);
+        console.error('Error hint:', videoCallError.hint);
         throw videoCallError;
       }
       // Email the link to the user

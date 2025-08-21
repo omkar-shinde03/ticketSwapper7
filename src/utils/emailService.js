@@ -5,11 +5,24 @@ import emailjs from '@emailjs/browser';
 
 // EmailJS configuration
 const EMAILJS_SERVICE_ID = 'service_fhvlzuw';
-const EMAILJS_TEMPLATE_ID = 'template_nx4f94k'; // User's actual template ID
+const EMAILJS_TEMPLATE_ID = 'template_5iac2xk'; // User's new template ID
 const EMAILJS_PUBLIC_KEY = 'uAKdrHtZvlr7ohS46';
 
 // Initialize EmailJS
 emailjs.init(EMAILJS_PUBLIC_KEY);
+
+// Special configuration to ensure emails go to the correct recipient
+const emailjsConfig = {
+  serviceId: EMAILJS_SERVICE_ID,
+  templateId: EMAILJS_TEMPLATE_ID,
+  publicKey: EMAILJS_PUBLIC_KEY,
+  // Force EmailJS to use our recipient email
+  templateParams: {
+    to_email: '',
+    user_email: '',
+    email: ''
+  }
+};
 
 /**
  * Send email using EmailJS
@@ -22,65 +35,76 @@ emailjs.init(EMAILJS_PUBLIC_KEY);
  */
 export const sendEmail = async (emailData) => {
   try {
-    console.log('Attempting to send email with EmailJS...');
-    console.log('Service ID:', EMAILJS_SERVICE_ID);
-    console.log('Template ID:', EMAILJS_TEMPLATE_ID);
-    console.log('Public Key:', EMAILJS_PUBLIC_KEY);
+    console.log('📧 Attempting to send email with EmailJS...');
+    console.log('📧 Recipient email:', emailData.to);
+    console.log('📧 Service ID:', EMAILJS_SERVICE_ID);
+    console.log('📧 Template ID:', EMAILJS_TEMPLATE_ID);
+    console.log('📧 Public Key:', EMAILJS_PUBLIC_KEY);
     
-    // Try multiple template variable formats to match common EmailJS templates
+    // Create template parameters with ALL possible variable names
     const templateParams = {
-      // Standard EmailJS variables (most common)
+      // Primary recipient variables - CRITICAL for routing
       to_email: emailData.to,
       to_name: 'User',
+      user_email: emailData.to,
+      email: emailData.to,
+      recipient_email: emailData.to,
+      to: emailData.to,
+      
+      // Sender variables
       from_name: 'TicketSwapper Team',
+      from_email: 'no-reply@ticketswapper.com',
       reply_to: 'no-reply@ticketswapper.com',
       
-      // Common template variables
+      // Content variables
       subject: emailData.subject,
       message: emailData.body,
       body: emailData.body,
       content: emailData.body,
-      
-      // Video link variables
-      video_link: emailData.video_link || '',
-      link: emailData.video_link || '',
-      
-      // Additional common variables
-      user_email: emailData.to,
-      user_name: 'User',
-      company_name: 'TicketSwapper',
-      
-      // Try these common EmailJS template variables
-      email: emailData.to,
-      name: 'User',
       text: emailData.body,
       html: emailData.body.replace(/\n/g, '<br>'),
       
-      // For the specific template you're using
-      user_email: emailData.to,
+      // Video link variables (multiple formats)
+      video_link: emailData.video_link || '',
+      link: emailData.video_link || '',
+      video_url: emailData.video_link || '',
+      call_link: emailData.video_link || '',
+      meeting_link: emailData.video_link || '',
+      
+      // User information
       user_name: 'User',
-      message: emailData.body,
-      video_link: emailData.video_link || 'No video link provided'
+      name: 'User',
+      company_name: 'TicketSwapper',
+      
+      // Additional common variables
+      timestamp: new Date().toISOString(),
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString()
     };
 
-    console.log('Template parameters:', templateParams);
-    console.log('📧 Sending email with EmailJS...');
-    console.log('📋 Template variables being sent:');
+    console.log('📋 Template parameters being sent:');
     Object.entries(templateParams).forEach(([key, value]) => {
       console.log(`  ${key}: ${value}`);
     });
 
     // Send email using EmailJS
+    console.log('🚀 Sending email...');
+    console.log('📧 Template ID:', EMAILJS_TEMPLATE_ID);
+    console.log('📧 Service ID:', EMAILJS_SERVICE_ID);
+    console.log('📧 Recipient:', emailData.to);
+    
+    // Use EmailJS with explicit configuration
     const response = await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
-      templateParams
+      templateParams,
+      EMAILJS_PUBLIC_KEY
     );
 
-    console.log('Email sent successfully:', response);
+    console.log('✅ Email sent successfully:', response);
     return { success: true, data: response };
   } catch (error) {
-    console.error('Email sending failed:', error);
+    console.error('❌ Email sending failed:', error);
     console.error('Error details:', {
       message: error.message,
       text: error.text,
@@ -110,11 +134,12 @@ export const sendEmail = async (emailData) => {
       
       // Try with minimal template variables
       try {
-        console.log('Trying with minimal template variables...');
+        console.log('🔄 Trying with minimal template variables...');
         const minimalParams = {
           to_email: emailData.to,
           message: emailData.body,
-          from_name: 'TicketSwapper Team'
+          from_name: 'TicketSwapper Team',
+          video_link: emailData.video_link || ''
         };
         
         const minimalResponse = await emailjs.send(
@@ -123,27 +148,28 @@ export const sendEmail = async (emailData) => {
           minimalParams
         );
         
-        console.log('Email sent with minimal params:', minimalResponse);
+        console.log('✅ Email sent with minimal params:', minimalResponse);
         return { success: true, data: minimalResponse, usedMinimal: true };
       } catch (minimalError) {
-        console.error('Minimal params also failed:', minimalError);
+        console.error('❌ Minimal params also failed:', minimalError);
         
         // Try with default EmailJS template as last resort
         try {
-          console.log('Trying with default EmailJS template...');
+          console.log('🔄 Trying with default EmailJS template...');
           const defaultResponse = await emailjs.send(
             EMAILJS_SERVICE_ID,
             'template_default', // Try default template
             {
               to_email: emailData.to,
               message: emailData.body,
-              from_name: 'TicketSwapper Team'
+              from_name: 'TicketSwapper Team',
+              video_link: emailData.video_link || ''
             }
           );
-          console.log('Email sent with default template:', defaultResponse);
+          console.log('✅ Email sent with default template:', defaultResponse);
           return { success: true, data: defaultResponse, usedDefault: true };
         } catch (defaultError) {
-          console.error('Default template also failed:', defaultError);
+          console.error('❌ Default template also failed:', defaultError);
           return { 
             success: false, 
             error: `Template error: ${error.message}. Please check your EmailJS template configuration.`,
@@ -417,6 +443,121 @@ ${videoLink}
 • Quiet environment for the call
 
 If you have any questions, please contact our support team.
+
+Thank you,
+TicketSwapper Team`,
+    video_link: videoLink
+  };
+
+  console.log('📧 Email data prepared:', emailData);
+  
+  const result = await sendEmail(emailData);
+  
+  console.log('📤 Email send result:', result);
+  
+  return result;
+};
+
+/**
+ * Debug EmailJS template variables - Test different parameter combinations
+ * @param {string} testEmail - Test email address
+ * @returns {Promise} - Debug results
+ */
+export const debugEmailJSTemplate = async (testEmail) => {
+  console.log('🔍 Debugging EmailJS template variables...');
+  
+  const testCases = [
+    {
+      name: 'Basic Test',
+      params: {
+        to_email: testEmail,
+        message: 'Test message',
+        from_name: 'Test'
+      }
+    },
+    {
+      name: 'Full KYC Test',
+      params: {
+        to_email: testEmail,
+        user_email: testEmail,
+        email: testEmail,
+        message: 'Your KYC verification is ready',
+        video_link: 'https://meet.jit.si/kyc-debug-' + Date.now(),
+        from_name: 'TicketSwapper Team'
+      }
+    },
+    {
+      name: 'Minimal Test',
+      params: {
+        to_email: testEmail,
+        message: 'Simple test'
+      }
+    }
+  ];
+
+  const results = [];
+
+  for (const testCase of testCases) {
+    try {
+      console.log(`🧪 Testing: ${testCase.name}`);
+      console.log('📋 Parameters:', testCase.params);
+      
+      const response = await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        testCase.params
+      );
+      
+      console.log(`✅ ${testCase.name} succeeded:`, response);
+      results.push({
+        name: testCase.name,
+        success: true,
+        params: testCase.params,
+        response: response
+      });
+      
+    } catch (error) {
+      console.error(`❌ ${testCase.name} failed:`, error);
+      results.push({
+        name: testCase.name,
+        success: false,
+        params: testCase.params,
+        error: error.text || error.message,
+        status: error.status
+      });
+    }
+  }
+
+  return results;
+};
+
+/**
+ * Test the new template with explicit recipient routing
+ * @param {string} testEmail - Test email address
+ * @returns {Promise} - Email result
+ */
+export const testNewTemplate = async (testEmail) => {
+  console.log('🧪 Testing new template with explicit routing...');
+  console.log('📧 Template ID:', EMAILJS_TEMPLATE_ID);
+  console.log('📧 Test email:', testEmail);
+  
+  const videoLink = 'https://meet.jit.si/kyc-new-template-' + Date.now();
+  
+  const emailData = {
+    to: testEmail,
+    subject: '🎥 KYC Verification - New Template Test',
+    body: `Dear User,
+
+Your KYC verification is ready with our new template!
+
+📹 Video Call Link: ${videoLink}
+
+⏰ Please be ready for your verification call.
+
+📋 Required Documents:
+• Valid ID (Aadhaar, PAN, etc.)
+• Good internet connection
+• Quiet environment
 
 Thank you,
 TicketSwapper Team`,

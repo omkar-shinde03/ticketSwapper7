@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate, testKYCEmailWithVideoLink } from '@/utils/emailService';
+import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates, diagnoseEmailJS, findWorkingTemplate, testKYCEmailWithVideoLink, debugEmailJSTemplate, testNewTemplate } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
   const [emailAddress, setEmailAddress] = useState('');
@@ -253,6 +253,83 @@ export const EmailTestComponent = () => {
     }
   };
 
+  const handleDebugTemplate = async () => {
+    if (!emailAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a test email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const results = await debugEmailJSTemplate(emailAddress);
+      
+      const successCount = results.filter(r => r.success).length;
+      if (successCount > 0) {
+        toast({
+          title: "Debug Complete! 🔍",
+          description: `${successCount}/${results.length} test cases succeeded. Check console for details.`,
+        });
+      } else {
+        toast({
+          title: "All Debug Tests Failed! ❌",
+          description: "Check console for detailed error information.",
+          variant: "destructive",
+        });
+      }
+      
+      console.log('🔍 Debug Results:', results);
+    } catch (error) {
+      toast({
+        title: "Debug Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTestNewTemplate = async () => {
+    if (!emailAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a test email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await testNewTemplate(emailAddress);
+      
+      if (result.success) {
+        toast({
+          title: "New Template Test Success! 🎯",
+          description: `Email sent to ${emailAddress} using new template. Check inbox!`,
+        });
+      } else {
+        toast({
+          title: "New Template Test Failed! ❌",
+          description: `Error: ${result.error}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "New Template Test Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
@@ -366,6 +443,36 @@ export const EmailTestComponent = () => {
           )}
         </div>
 
+        {/* Debug Template Section */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Debug EmailJS Template Variables</Label>
+          <Button 
+            onClick={handleDebugTemplate} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Debugging...' : 'Debug Template Variables'}
+          </Button>
+          <div className="text-xs text-gray-500">
+            Tests different parameter combinations to find what your template expects
+          </div>
+        </div>
+
+        {/* New Template Test Section */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Test New EmailJS Template</Label>
+          <Button 
+            onClick={handleTestNewTemplate} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Testing...' : 'Test New EmailJS Template'}
+          </Button>
+          {/* Add a placeholder for the new template test result if needed */}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="test-email">Test Email Address</Label>
           <Input
@@ -403,6 +510,15 @@ export const EmailTestComponent = () => {
           >
             {isLoading ? 'Sending...' : 'Send Test KYC Email with Video Link'}
           </Button>
+
+          <Button 
+            onClick={handleTestNewTemplate} 
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoading ? 'Testing...' : 'Test New EmailJS Template 🎯'}
+          </Button>
         </div>
         
         <div className="text-sm text-gray-600">
@@ -410,9 +526,11 @@ export const EmailTestComponent = () => {
           <p>• <strong>Template Test:</strong> Test all available EmailJS templates</p>
           <p>• <strong>Diagnostic Test:</strong> Run a comprehensive check for EmailJS configuration issues</p>
           <p>• <strong>Find Working Template:</strong> Automatically discover the ID of a working EmailJS template</p>
+          <p>• <strong>Debug Template Variables:</strong> Test different parameter combinations to find what your template expects</p>
           <p>• <strong>Test Email:</strong> Simple test message</p>
           <p>• <strong>KYC Email:</strong> Full KYC notification with video link</p>
           <p>• <strong>KYC Email with Video Link:</strong> Test the complete KYC email flow with video call link</p>
+          <p>• <strong>Test New EmailJS Template:</strong> Test the new template with explicit recipient routing</p>
           <p>• Check your inbox after clicking any button</p>
         </div>
       </CardContent>

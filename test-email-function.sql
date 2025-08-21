@@ -3,8 +3,8 @@
 
 -- 1. Check if the function exists
 SELECT 
-    function_name,
-    function_type,
+    routine_name,
+    routine_type,
     data_type
 FROM information_schema.routines 
 WHERE routine_name = 'send-email';

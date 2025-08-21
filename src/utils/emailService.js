@@ -5,7 +5,7 @@ import emailjs from '@emailjs/browser';
 
 // EmailJS configuration
 const EMAILJS_SERVICE_ID = 'service_fhvlzuw';
-const EMAILJS_TEMPLATE_ID = '__ejs-test-mail-service__';
+const EMAILJS_TEMPLATE_ID = 'template_default'; // Changed to standard template
 const EMAILJS_PUBLIC_KEY = 'uAKdrHtZvlr7ohS46';
 
 // Initialize EmailJS
@@ -183,10 +183,11 @@ export const testEmailJSTemplates = async (testEmail) => {
   };
 
   const templates = [
-    { id: EMAILJS_TEMPLATE_ID, name: 'Current Template' },
+    { id: EMAILJS_SERVICE_ID, name: 'Service Test' },
     { id: 'template_default', name: 'Default Template' },
     { id: 'template_contact', name: 'Contact Template' },
-    { id: 'template_support', name: 'Support Template' }
+    { id: 'template_support', name: 'Support Template' },
+    { id: 'template_kyc', name: 'KYC Template' }
   ];
 
   const results = [];

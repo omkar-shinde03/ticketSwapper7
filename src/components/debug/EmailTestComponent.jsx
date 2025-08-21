@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { sendKYCEmail, testEmail, testCSP, testEmailJSTemplates } from '@/utils/emailService';
 
 export const EmailTestComponent = () => {
-  const [testEmail, setTestEmail] = useState('');
+  const [emailAddress, setEmailAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [cspTestResult, setCspTestResult] = useState(null);
   const [templateTestResults, setTemplateTestResults] = useState(null);
@@ -43,7 +43,7 @@ export const EmailTestComponent = () => {
   };
 
   const handleTestTemplates = async () => {
-    if (!testEmail) {
+    if (!emailAddress) {
       toast({
         title: "Error",
         description: "Please enter a test email address",
@@ -54,7 +54,7 @@ export const EmailTestComponent = () => {
 
     setIsLoading(true);
     try {
-      const results = await testEmailJSTemplates(testEmail);
+      const results = await testEmailJSTemplates(emailAddress);
       setTemplateTestResults(results);
       
       const workingTemplates = results.filter(r => r.success);
@@ -82,7 +82,7 @@ export const EmailTestComponent = () => {
   };
 
   const handleTestEmail = async () => {
-    if (!testEmail) {
+    if (!emailAddress) {
       toast({
         title: "Error",
         description: "Please enter a test email address",
@@ -93,12 +93,12 @@ export const EmailTestComponent = () => {
 
     setIsLoading(true);
     try {
-      const result = await testEmail(testEmail);
+      const result = await testEmail(emailAddress);
       
       if (result.success) {
         toast({
           title: "Success!",
-          description: `Test email sent to ${testEmail}. Check your inbox!`,
+          description: `Test email sent to ${emailAddress}. Check your inbox!`,
         });
       } else {
         toast({
@@ -119,7 +119,7 @@ export const EmailTestComponent = () => {
   };
 
   const handleTestKYCEmail = async () => {
-    if (!testEmail) {
+    if (!emailAddress) {
       toast({
         title: "Error",
         description: "Please enter a test email address",
@@ -131,12 +131,12 @@ export const EmailTestComponent = () => {
     setIsLoading(true);
     try {
       const videoLink = 'https://meet.jit.si/test-kyc-call-' + Date.now();
-      const result = await sendKYCEmail(testEmail, videoLink);
+      const result = await sendKYCEmail(emailAddress, videoLink);
       
       if (result.success) {
         toast({
           title: "Success!",
-          description: `KYC email sent to ${testEmail}. Check your inbox!`,
+          description: `KYC email sent to ${emailAddress}. Check your inbox!`,
         });
       } else {
         toast({
@@ -229,8 +229,8 @@ export const EmailTestComponent = () => {
             id="test-email"
             type="email"
             placeholder="your-email@example.com"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
+            value={emailAddress}
+            onChange={(e) => setEmailAddress(e.target.value)}
           />
         </div>
         

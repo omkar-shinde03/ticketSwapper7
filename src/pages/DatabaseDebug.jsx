@@ -14,6 +14,11 @@ const DatabaseDebug = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Test Message - Remove this after confirming it works */}
+      <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        ✅ Debug Center is working! If you see this message, the route is working correctly.
+      </div>
+      
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
           <Button 

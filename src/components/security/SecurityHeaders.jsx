@@ -12,7 +12,7 @@ export const SecurityHeaders = () => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google.com https://api.emailjs.com https://*.emailjs.com",
       "frame-src 'self' https://js.stripe.com https://www.google.com",
       "object-src 'none'",
       "base-uri 'self'",

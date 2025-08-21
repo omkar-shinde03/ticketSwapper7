@@ -70,6 +70,19 @@ export const sendEmail = async (emailData) => {
       status: error.status
     });
     
+    // Check if it's a CSP error
+    if (error.message && error.message.includes('Content Security Policy')) {
+      console.error('CSP Error detected! Please check your Content Security Policy settings.');
+      console.error('Add these domains to your CSP connect-src directive:');
+      console.error('- https://api.emailjs.com');
+      console.error('- https://*.emailjs.com');
+      return { 
+        success: false, 
+        error: 'Content Security Policy blocked EmailJS connection. Please contact support.',
+        cspError: true 
+      };
+    }
+    
     // Try with default EmailJS template as fallback
     try {
       console.log('Trying with default EmailJS template...');
@@ -106,6 +119,48 @@ export const sendKYCEmail = async (userEmail, videoLink) => {
   };
 
   return await sendEmail(emailData);
+};
+
+/**
+ * Test Content Security Policy for EmailJS
+ * @returns {Object} - CSP test result
+ */
+export const testCSP = async () => {
+  try {
+    console.log('Testing CSP for EmailJS...');
+    
+    // Test if we can connect to EmailJS API
+    const testUrl = 'https://api.emailjs.com/api/v1.0/email/send';
+    
+    // Try a simple fetch to test CSP
+    const response = await fetch(testUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ test: true })
+    });
+    
+    console.log('CSP test successful - can connect to EmailJS');
+    return { success: true, message: 'CSP allows EmailJS connections' };
+  } catch (error) {
+    console.error('CSP test failed:', error);
+    
+    if (error.message && error.message.includes('Content Security Policy')) {
+      return { 
+        success: false, 
+        error: 'CSP blocked EmailJS connection',
+        message: 'Please add https://api.emailjs.com to your CSP connect-src directive',
+        cspError: true
+      };
+    }
+    
+    return { 
+      success: false, 
+      error: error.message,
+      message: 'Connection failed for unknown reason'
+    };
+  }
 };
 
 /**

@@ -230,13 +230,23 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
       }
       // Email the link to the user
       console.log('Sending video KYC link to:', user.user.email, callLink);
-      await supabase.functions.invoke("send-email", {
+      const { error: emailError } = await supabase.functions.invoke("send-email", {
         body: {
           to: user.user.email,
           subject: "Your Video KYC Call Link",
           body: `Dear User,\n\nYour video KYC verification call is ready. Please join the call at your scheduled time using the link below:\n\n${callLink}\n\nThank you,\nTicketSwapper Team`,
+          video_link: callLink
         },
       });
+      
+      if (emailError) {
+        console.error('Email sending failed:', emailError);
+        toast({
+          title: "Warning",
+          description: "Document uploaded successfully, but email notification failed. Please check your email manually.",
+          variant: "destructive",
+        });
+      }
       setUploadedFile(fileName);
       setUploadStep("verify");
       setVideoKYCRequested(true);

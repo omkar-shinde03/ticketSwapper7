@@ -63,14 +63,14 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           .from('user_documents')
           .select('id')
           .eq('user_id', profile.id)
-          .limit(1)
-          .single();
+          .limit(1);
         
         if (error) {
           console.warn('Error checking document:', error);
           setDocumentExists(false);
         } else {
-          setDocumentExists(!!data);
+          // Check if any documents exist (data will be an array)
+          setDocumentExists(data && data.length > 0);
         }
       } catch (err) {
         console.warn('Exception checking document:', err);
@@ -92,16 +92,17 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           .eq('user_id', profile.id)
           .in('status', ['waiting_admin', 'admin_connected', 'in_call'])
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
         
         if (error) {
           console.warn('Error checking video KYC request:', error);
           setVideoKYCRequested(false);
           setVideoKYCRequestId(null);
-        } else if (data) {
+        } else if (data && data.length > 0) {
+          // Take the first result from the array
+          const firstCall = data[0];
           setVideoKYCRequested(true);
-          setVideoKYCRequestId(data.id);
+          setVideoKYCRequestId(firstCall.id);
         } else {
           setVideoKYCRequested(false);
           setVideoKYCRequestId(null);
@@ -126,13 +127,12 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           status: 'waiting_admin',
           call_type: 'kyc_verification'
         })
-        .select('*')
-        .single();
+        .select('*');
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      } else {
+      } else if (data && data.length > 0) {
         setVideoKYCRequested(true);
-        setVideoKYCRequestId(data.id);
+        setVideoKYCRequestId(data[0].id);
         toast({ title: 'Request Sent', description: 'Waiting for admin to start the call.' });
       }
     } finally {
@@ -202,8 +202,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           call_type: "kyc_verification",
           call_link: callLink,
         })
-        .select("id")
-        .single();
+        .select("id");
       if (videoCallError) {
         throw videoCallError;
       }
@@ -219,7 +218,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
       setUploadedFile(fileName);
       setUploadStep("verify");
       setVideoKYCRequested(true);
-      setVideoKYCRequestId(videoCall.id);
+      setVideoKYCRequestId(videoCall[0].id);
       toast({
         title: "Document uploaded",
         description: "Your video KYC link has been sent to your email. Please wait for the admin to join.",

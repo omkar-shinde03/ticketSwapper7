@@ -4,6 +4,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   try {
     // Only allow POST requests
     if (req.method !== 'POST') {
@@ -11,7 +24,12 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Method not allowed' }),
         { 
           status: 405,
-          headers: { 'Content-Type': 'application/json' } 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+          } 
         }
       );
     }
@@ -23,7 +41,12 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Webhook secret not configured' }),
         { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' } 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+          } 
         }
       );
     }
@@ -37,7 +60,12 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Missing signature header' }),
         { 
           status: 400,
-          headers: { 'Content-Type': 'application/json' } 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+          } 
         }
       );
     }
@@ -65,7 +93,12 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Invalid webhook signature' }),
         { 
           status: 401,
-          headers: { 'Content-Type': 'application/json' } 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+          } 
         }
       );
     }
@@ -86,7 +119,12 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Supabase configuration missing' }),
         { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' } 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+          } 
         }
       );
     }
@@ -118,7 +156,12 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, message: 'Webhook processed successfully' }),
       { 
         status: 200,
-        headers: { 'Content-Type': 'application/json' } 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+        } 
       }
     );
 
@@ -128,7 +171,12 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: 'Internal server error' }),
       { 
         status: 500,
-        headers: { 'Content-Type': 'application/json' } 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with, x-razorpay-signature',
+        } 
       }
     );
   }

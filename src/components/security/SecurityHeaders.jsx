@@ -12,8 +12,8 @@ export const SecurityHeaders = () => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google.com https://api.emailjs.com https://*.emailjs.com https://api.razorpay.com",
-      "frame-src 'self' https://js.stripe.com https://www.google.com https://checkout.razorpay.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google.com https://api.emailjs.com https://*.emailjs.com https://api.razorpay.com https://lumberjack.razorpay.com",
+      "frame-src 'self' https://js.stripe.com https://www.google.com https://checkout.razorpay.com https://api.razorpay.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'"

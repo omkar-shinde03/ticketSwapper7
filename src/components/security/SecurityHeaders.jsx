@@ -8,12 +8,12 @@ export const SecurityHeaders = () => {
     cspMeta.httpEquiv = 'Content-Security-Policy';
     cspMeta.content = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://www.google.com https://js.stripe.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://www.google.com https://js.stripe.com https://checkout.razorpay.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google.com https://api.emailjs.com https://*.emailjs.com",
-      "frame-src 'self' https://js.stripe.com https://www.google.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google.com https://api.emailjs.com https://*.emailjs.com https://api.razorpay.com",
+      "frame-src 'self' https://js.stripe.com https://www.google.com https://checkout.razorpay.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'"

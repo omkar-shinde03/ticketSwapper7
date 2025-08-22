@@ -47,7 +47,7 @@ export const useDashboardData = () => {
   useEffect(() => {
     if (user?.id) {
       // Set up real-time subscription for tickets
-      const channel = supabase
+      const ticketsChannel = supabase
         .channel('tickets_changes')
         .on(
           'postgres_changes',
@@ -64,8 +64,30 @@ export const useDashboardData = () => {
         )
         .subscribe();
 
+      // Set up real-time subscription for profile changes (KYC verification)
+      const profileChannel = supabase
+        .channel('profile_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Profile data changed:', payload);
+            if (payload.eventType === 'UPDATE') {
+              // Update the profile state with the new data
+              setProfile(payload.new);
+            }
+          }
+        )
+        .subscribe();
+
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(ticketsChannel);
+        supabase.removeChannel(profileChannel);
       };
     }
   }, [user?.id]);

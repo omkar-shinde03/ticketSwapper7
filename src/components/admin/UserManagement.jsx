@@ -2,20 +2,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Eye, FileText, Download, User, CheckCircle, Clock, XCircle } from "lucide-react";
+import { User, CheckCircle, Clock, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import React, { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import React from "react";
 
 /**
  * @typedef {Object} Profile
@@ -33,82 +22,10 @@ import {
  */
 
 export const UserManagement = ({ users }) => {
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [userDocuments, setUserDocuments] = useState([]);
-  const [userTickets, setUserTickets] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-
   const totalUsers = users.filter(user => user.user_type !== 'admin').length;
   const verifiedUsers = users.filter(user => user.kyc_status === 'verified' && user.user_type !== 'admin').length;
   const pendingUsers = users.filter(user => user.kyc_status === 'pending' && user.user_type !== 'admin').length;
   const rejectedUsers = users.filter(user => user.kyc_status === 'rejected' && user.user_type !== 'admin').length;
-
-  const loadUserDetails = async (user) => {
-    setIsLoading(true);
-    setSelectedUser(user);
-    
-    try {
-      // Load user documents
-      const { data: documents, error: docsError } = await supabase
-        .from('user_documents')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (docsError) {
-        console.error('Error loading documents:', docsError);
-      } else {
-        setUserDocuments(documents || []);
-      }
-
-      // Load user tickets
-      const { data: tickets, error: ticketsError } = await supabase
-        .from('tickets')
-        .select('*')
-        .eq('seller_id', user.id);
-
-      if (ticketsError) {
-        console.error('Error loading tickets:', ticketsError);
-      } else {
-        setUserTickets(tickets || []);
-      }
-    } catch (error) {
-      console.error('Error loading user details:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load user details.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const downloadDocument = async (documentUrl, fileName) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(documentUrl);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading document:', error);
-      toast({
-        title: "Error",
-        description: "Failed to download document.",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -187,7 +104,6 @@ export const UserManagement = ({ users }) => {
                 <TableHead>User Type</TableHead>
                 <TableHead>KYC Status</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -218,130 +134,6 @@ export const UserManagement = ({ users }) => {
                   </TableCell>
                   <TableCell>
                     {formatDistanceToNow(new Date(user.created_at), { addSuffix: true })}
-                  </TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => loadUserDetails(user)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>User Details: {selectedUser?.full_name || 'Unknown'}</DialogTitle>
-                          <DialogDescription>
-                            Complete user information, documents, and activity
-                          </DialogDescription>
-                        </DialogHeader>
-                        
-                        {selectedUser && (
-                          <div className="space-y-6">
-                            {/* User Basic Info */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-sm font-medium">Full Name</label>
-                                <p className="text-sm text-muted-foreground">{selectedUser.full_name || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium">Email</label>
-                                <p className="text-sm text-muted-foreground">{selectedUser.email || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium">Phone</label>
-                                <p className="text-sm text-muted-foreground">{selectedUser.phone || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium">KYC Status</label>
-                                <p className="text-sm text-muted-foreground">{selectedUser.kyc_status}</p>
-                              </div>
-                            </div>
-
-                            {/* Documents Section */}
-                            <div>
-                              <h3 className="text-lg font-semibold mb-3">KYC Documents</h3>
-                              {isLoading ? (
-                                <p className="text-sm text-muted-foreground">Loading documents...</p>
-                              ) : userDocuments.length > 0 ? (
-                                <div className="space-y-2">
-                                  {userDocuments.map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                      <div className="flex items-center space-x-3">
-                                        <FileText className="h-4 w-4" />
-                                        <div>
-                                          <p className="text-sm font-medium">{doc.document_type}</p>
-                                          <p className="text-xs text-muted-foreground">
-                                            Uploaded {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className="flex space-x-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => window.open(doc.document_url, '_blank')}
-                                        >
-                                          <Eye className="h-4 w-4 mr-1" />
-                                          View
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => downloadDocument(doc.document_url, `${doc.document_type}_${selectedUser.full_name}`)}
-                                        >
-                                          <Download className="h-4 w-4 mr-1" />
-                                          Download
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">No documents uploaded</p>
-                              )}
-                            </div>
-
-                            {/* Tickets Section */}
-                            <div>
-                              <h3 className="text-lg font-semibold mb-3">Ticket Activity ({userTickets.length})</h3>
-                              {userTickets.length > 0 ? (
-                                <div className="space-y-2">
-                                  {userTickets.slice(0, 5).map((ticket) => (
-                                    <div key={ticket.id} className="p-3 border rounded-lg">
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                          <p className="text-sm font-medium">{ticket.pnr_number}</p>
-                                          <p className="text-xs text-muted-foreground">
-                                            {ticket.from_location} → {ticket.to_location}
-                                          </p>
-                                          <p className="text-xs text-muted-foreground">
-                                            ₹{ticket.selling_price} • {ticket.status}
-                                          </p>
-                                        </div>
-                                        <Badge variant={ticket.status === 'available' ? 'default' : 'secondary'}>
-                                          {ticket.status}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  ))}
-                                  {userTickets.length > 5 && (
-                                    <p className="text-xs text-muted-foreground">
-                                      And {userTickets.length - 5} more tickets...
-                                    </p>
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">No tickets listed</p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
                   </TableCell>
                 </TableRow>
               ))}

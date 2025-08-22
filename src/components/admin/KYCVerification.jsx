@@ -95,22 +95,54 @@ TicketSwapper Team`;
     setLoading(user.id);
     try {
       console.log('🔍 Starting KYC verification for user:', user.id);
+      console.log('📊 Current user data:', user);
+      
+      // First, verify that the current user is an admin
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: adminProfile, error: adminError } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('id', currentUser.id)
+        .single();
+      
+      if (adminError || adminProfile?.user_type !== 'admin') {
+        console.error('❌ Current user is not an admin:', adminProfile?.user_type);
+        throw new Error('Admin privileges required for KYC verification');
+      }
+      
+      console.log('✅ Admin privileges confirmed');
       
       // Update user's KYC status to verified
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('profiles')
         .update({ 
           kyc_status: 'verified',
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select();
 
       if (updateError) {
         console.error('❌ Failed to update profile KYC status:', updateError);
+        console.error('❌ Error details:', updateError);
         throw updateError;
       }
 
-      console.log('✅ Profile KYC status updated to verified');
+      console.log('✅ Profile KYC status updated successfully:', updateData);
+      console.log('✅ Updated user data:', updateData);
+
+      // Verify the update by fetching the user again
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('❌ Failed to verify update:', verifyError);
+      } else {
+        console.log('✅ Verification - User KYC status is now:', verifyData.kyc_status);
+      }
 
       // Update video_calls status if there are pending calls
       const { error: callsError } = await supabase
@@ -131,19 +163,47 @@ TicketSwapper Team`;
       }
 
       // Update user_documents verification status
-      const { error: docsError } = await supabase
-        .from('user_documents')
-        .update({ 
-          verification_status: 'verified',
-          uploaded_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-        .eq('verification_status', 'pending');
+      try {
+        console.log('🔍 Checking user documents for user:', user.id);
+        
+        // First check if user has any documents
+        const { data: existingDocs, error: checkError } = await supabase
+          .from('user_documents')
+          .select('*')
+          .eq('user_id', user.id);
 
-      if (docsError) {
-        console.warn('⚠️ Failed to update user documents:', docsError);
-      } else {
-        console.log('✅ User documents marked as verified');
+        if (checkError) {
+          console.warn('⚠️ Failed to check user documents:', checkError);
+          console.warn('⚠️ Check error details:', checkError);
+        } else {
+          console.log('📄 Found documents:', existingDocs);
+          
+          if (existingDocs && existingDocs.length > 0) {
+            console.log('📄 Found', existingDocs.length, 'documents for user');
+            console.log('📄 Document structure:', existingDocs[0]);
+            
+            // Update only documents that are pending
+            const { error: docsError } = await supabase
+              .from('user_documents')
+              .update({ 
+                verification_status: 'verified'
+              })
+              .eq('user_id', user.id)
+              .eq('verification_status', 'pending');
+
+            if (docsError) {
+              console.warn('⚠️ Failed to update user documents:', docsError);
+              console.warn('⚠️ Update error details:', docsError);
+            } else {
+              console.log('✅ User documents marked as verified');
+            }
+          } else {
+            console.log('ℹ️ No documents found for user, skipping document update');
+          }
+        }
+      } catch (docsUpdateError) {
+        console.warn('⚠️ Error in document update process:', docsUpdateError);
+        console.warn('⚠️ Error stack:', docsUpdateError.stack);
       }
 
       // Send verification confirmation email
@@ -160,12 +220,20 @@ TicketSwapper Team`;
         description: `User ${user.full_name || user.email} has been verified. ${emailSent ? 'Confirmation email sent.' : 'Email notification failed.'}`,
       });
 
-      // Refresh the data to update the UI
+      // Force refresh the data to update the UI
+      console.log('🔄 Calling onUpdate to refresh data...');
       onUpdate();
+      
+      // Also force a direct refresh after a short delay
+      setTimeout(() => {
+        console.log('🔄 Force refreshing data after delay...');
+        onUpdate();
+      }, 1000);
       
       console.log('✅ KYC verification process completed successfully');
     } catch (error) {
       console.error('❌ KYC verification failed:', error);
+      console.error('❌ Error stack:', error.stack);
       toast({
         title: "KYC Verification Failed",
         description: error.message || "Failed to verify KYC. Please try again.",

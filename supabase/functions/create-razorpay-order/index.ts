@@ -15,6 +15,26 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Add a simple test endpoint
+  if (req.method === 'GET') {
+    return new Response(
+      JSON.stringify({ 
+        message: 'Function is working!',
+        timestamp: new Date().toISOString(),
+        method: req.method
+      }),
+      { 
+        status: 200,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with',
+        } 
+      }
+    );
+  }
+
   try {
     // Parse request body
     const requestBody = await req.json();
@@ -116,14 +136,14 @@ Deno.serve(async (req) => {
     console.log('Creating Razorpay order with:', {
       amount: Math.round(amount * 100),
       currency: 'INR',
-      receipt: `ticket_${ticketId}_${Date.now()}`
+      receipt: `tkt_${Date.now()}`
     });
 
     // Create Razorpay order
     const orderData = {
       amount: Math.round(amount * 100), // Convert to paise (smallest currency unit)
       currency: 'INR',
-      receipt: `ticket_${ticketId}_${Date.now()}`,
+      receipt: `tkt_${Date.now()}`, // Shorter receipt ID
       notes: {
         ticketId: ticketId,
         sellerAmount: sellerAmount.toString(),

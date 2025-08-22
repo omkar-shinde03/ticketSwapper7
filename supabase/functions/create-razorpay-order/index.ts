@@ -17,13 +17,63 @@ Deno.serve(async (req) => {
 
   try {
     // Parse request body
-    const { ticketId, amount, sellerAmount, platformCommission } = await req.json();
+    const requestBody = await req.json();
+    console.log('Received request body:', JSON.stringify(requestBody, null, 2));
+    
+    const { ticketId, amount, sellerAmount, platformCommission } = requestBody;
+
+    // Log the extracted values
+    console.log('Extracted values:', {
+      ticketId,
+      amount,
+      sellerAmount,
+      platformCommission,
+      ticketIdType: typeof ticketId,
+      amountType: typeof amount,
+      sellerAmountType: typeof sellerAmount,
+      platformCommissionType: typeof platformCommission
+    });
 
     // Validate required fields
     if (!ticketId || !amount || !sellerAmount || !platformCommission) {
+      const missingFields = [];
+      if (!ticketId) missingFields.push('ticketId');
+      if (!amount) missingFields.push('amount');
+      if (!sellerAmount) missingFields.push('sellerAmount');
+      if (!platformCommission) missingFields.push('platformCommission');
+      
+      console.error('Missing required fields:', missingFields);
+      
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields: ticketId, amount, sellerAmount, platformCommission' 
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+          received: requestBody,
+          missing: missingFields
+        }),
+        { 
+          status: 400,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': 'https://ticket-swapper7.vercel.app',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-requested-with',
+          } 
+        }
+      );
+    }
+
+    // Validate data types
+    if (typeof amount !== 'number' || typeof sellerAmount !== 'number' || typeof platformCommission !== 'number') {
+      console.error('Invalid data types:', {
+        amount: typeof amount,
+        sellerAmount: typeof sellerAmount,
+        platformCommission: typeof platformCommission
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid data types. amount, sellerAmount, and platformCommission must be numbers.',
+          received: requestBody
         }),
         { 
           status: 400,
@@ -42,6 +92,11 @@ Deno.serve(async (req) => {
     const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
 
     if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error('Razorpay credentials missing:', {
+        hasKeyId: !!razorpayKeyId,
+        hasKeySecret: !!razorpayKeySecret
+      });
+      
       return new Response(
         JSON.stringify({ 
           error: 'Razorpay credentials not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your Supabase Edge Function secrets.' 
@@ -57,6 +112,12 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    console.log('Creating Razorpay order with:', {
+      amount: Math.round(amount * 100),
+      currency: 'INR',
+      receipt: `ticket_${ticketId}_${Date.now()}`
+    });
 
     // Create Razorpay order
     const orderData = {
@@ -100,6 +161,7 @@ Deno.serve(async (req) => {
     }
 
     const orderResponse = await response.json();
+    console.log('Razorpay order created successfully:', orderResponse.id);
 
     // Return order details for frontend
     return new Response(
@@ -129,7 +191,8 @@ Deno.serve(async (req) => {
     console.error('Error creating Razorpay order:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error while creating payment order' 
+        error: 'Internal server error while creating payment order',
+        details: error.message
       }),
       { 
         status: 500,

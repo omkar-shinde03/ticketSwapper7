@@ -25,11 +25,32 @@ export const RazorpayEscrowPayment = ({
         throw new Error("User not authenticated");
       }
 
+      // Debug: Log the ticket object
+      console.log('Ticket object received:', ticket);
+      console.log('Ticket selling_price:', ticket.selling_price, 'Type:', typeof ticket.selling_price);
+
       // Calculate commission (5% of selling price)
       const commissionRate = 0.05;
-      const sellingPrice = ticket.selling_price;
+      const sellingPrice = parseFloat(ticket.selling_price) || 0;
       const platformCommission = Math.round(sellingPrice * commissionRate);
       const sellerAmount = sellingPrice - platformCommission;
+
+      // Validate that we have valid numbers
+      if (sellingPrice <= 0) {
+        throw new Error('Invalid ticket price. Please contact support.');
+      }
+
+      console.log('Payment data being sent:', {
+        ticketId: ticket.id,
+        amount: sellingPrice,
+        sellerAmount: sellerAmount,
+        platformCommission: platformCommission,
+        types: {
+          amount: typeof sellingPrice,
+          sellerAmount: typeof sellerAmount,
+          platformCommission: typeof platformCommission
+        }
+      });
 
       // Create Razorpay order via edge function
       const { data: orderData, error: orderError } = await supabase.functions.invoke(

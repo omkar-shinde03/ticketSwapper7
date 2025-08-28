@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   phone TEXT,
   email TEXT,
   user_type TEXT DEFAULT 'user' CHECK (user_type IN ('user', 'admin')),
-  kyc_status TEXT DEFAULT 'pending' CHECK (kyc_status IN ('pending', 'verified', 'rejected')),
+  kyc_status TEXT CHECK (kyc_status IN ('pending', 'verified', 'rejected')),
   email_verified BOOLEAN DEFAULT false,
   phone_verified BOOLEAN DEFAULT false,
   avatar_url TEXT,

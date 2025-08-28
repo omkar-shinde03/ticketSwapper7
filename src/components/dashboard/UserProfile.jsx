@@ -66,24 +66,40 @@ export const UserProfile = ({ profile, user }) => {
               className={`w-fit ${
                 profile?.kyc_status === 'verified' 
                   ? 'text-green-700 bg-green-100' 
-                  : 'text-yellow-700 bg-yellow-100'
+                  : profile?.kyc_status === 'pending'
+                  ? 'text-orange-700 bg-orange-100'
+                  : profile?.kyc_status === 'rejected'
+                  ? 'text-red-700 bg-red-100'
+                  : 'text-gray-700 bg-gray-100'
               }`}
             >
               <AlertCircle className="h-3 w-3 mr-1" />
-              {profile?.kyc_status === 'verified' ? 'Verified' : 'Pending Verification'}
+              {profile?.kyc_status === 'verified' ? 'Verified' : 
+               profile?.kyc_status === 'pending' ? 'Under Review' :
+               profile?.kyc_status === 'rejected' ? 'Rejected' : 'Not Started'}
             </Badge>
           </div>
         </div>
         
-        {profile?.kyc_status !== 'verified' && (
+        {!profile?.kyc_status || profile?.kyc_status === 'rejected' ? (
           <div className="border rounded-lg p-4 bg-yellow-50">
             <h4 className="font-medium text-yellow-800 mb-2">KYC Verification Required</h4>
             <p className="text-sm text-yellow-700 mb-3">
-              Complete your KYC verification with Aadhaar to start buying and selling tickets.
+              {profile?.kyc_status === 'rejected' 
+                ? 'Your KYC was rejected. Please try again with correct documents.'
+                : 'Complete your KYC verification with Aadhaar to start buying and selling tickets.'
+              }
             </p>
             <Button variant="outline" className="border-yellow-300 text-yellow-700">
-              Start KYC Process
+              {profile?.kyc_status === 'rejected' ? 'Try Again' : 'Start KYC Process'}
             </Button>
+          </div>
+        ) : profile?.kyc_status === 'pending' && (
+          <div className="border rounded-lg p-4 bg-orange-50">
+            <h4 className="font-medium text-orange-800 mb-2">KYC Under Review</h4>
+            <p className="text-sm text-orange-700 mb-3">
+              Your KYC documents have been uploaded and are being reviewed by our admin team. This usually takes 24-48 hours.
+            </p>
           </div>
         )}
       </CardContent>

@@ -61,7 +61,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
       try {
         const { data, error } = await supabase
           .from('user_documents')
-          .select('id')
+          .select('id, verification_status')
           .eq('user_id', profile.id)
           .limit(1);
         
@@ -69,8 +69,18 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           console.warn('Error checking document:', error);
           setDocumentExists(false);
         } else {
-          // Check if any documents exist (data will be an array)
-          setDocumentExists(data && data.length > 0);
+          // Check if any documents exist and their verification status
+          const hasDocuments = data && data.length > 0;
+          setDocumentExists(hasDocuments);
+          
+          // If documents exist, check if KYC status should be updated
+          if (hasDocuments && profile.kyc_status === null) {
+            // Update profile to pending if documents exist but KYC status is null
+            await supabase
+              .from('profiles')
+              .update({ kyc_status: 'pending' })
+              .eq('id', profile.id);
+          }
         }
       } catch (err) {
         console.warn('Exception checking document:', err);
@@ -258,6 +268,20 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
       setUploadStep("verify");
       setVideoKYCRequested(true);
       setVideoKYCRequestId(videoCall[0].id);
+      
+      // Update profile KYC status to pending
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          kyc_status: 'pending',
+          kyc_document_url: fileName 
+        })
+        .eq('id', profile.id);
+      
+      if (profileError) {
+        console.warn('Profile update error:', profileError);
+      }
+      
       toast({
         title: "Document uploaded",
         description: "Your video KYC link has been sent to your email. Please wait for the admin to join.",
@@ -393,7 +417,7 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
           <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <CardTitle className="text-2xl text-green-700">KYC Verification Complete! 🎉</CardTitle>
+          <CardTitle className="2xl text-green-700">KYC Verification Complete! 🎉</CardTitle>
           <CardDescription>
             Your account has been successfully verified. You can now access all platform features.
           </CardDescription>
@@ -442,11 +466,42 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
             onClick={() => {
               setUploadStep('upload');
               setUploadedFile(null);
+              setDocumentExists(false);
             }}
             className="w-full"
           >
             Try Again
           </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If user has documents but KYC is pending, show pending status
+  if (documentExists && profile?.kyc_status === 'pending') {
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+            <Clock className="h-8 w-8 text-orange-600" />
+          </div>
+          <CardTitle className="text-2xl text-orange-700">KYC Verification Pending</CardTitle>
+          <CardDescription>
+            Your documents have been uploaded and are under review by our admin team.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h4 className="font-medium text-orange-800 mb-2">What happens next?</h4>
+            <ul className="text-sm text-orange-700 space-y-1 text-left">
+              <li>✅ Your documents are being reviewed</li>
+              <li>✅ You'll receive an email once verified</li>
+              <li>✅ You can check status updates here</li>
+            </ul>
+          </div>
+          <p className="text-sm text-gray-600">
+            This usually takes 24-48 hours. You'll be notified via email once complete.
+          </p>
         </CardContent>
       </Card>
     );
@@ -504,18 +559,6 @@ export const KYCCompletion = ({ profile, onUpdate }) => {
         <CardDescription>
           Complete your KYC verification to start selling tickets safely
         </CardDescription>
-        {/* Temporary debug button */}
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            console.log('Current user:', user);
-            alert(`User ID: ${user?.id || 'Not found'}\nEmail: ${user?.email || 'Not found'}`);
-          }}
-        >
-          Debug: Show My User ID
-        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         {!documentExists ? (

@@ -120,7 +120,7 @@ export const useDashboardData = () => {
             full_name: session.user.user_metadata?.full_name || null,
             phone: session.user.user_metadata?.phone || null,
             user_type: session.user.user_metadata?.user_type || 'user',
-            kyc_status: 'pending'
+            kyc_status: null
           });
 
         if (insertError) {

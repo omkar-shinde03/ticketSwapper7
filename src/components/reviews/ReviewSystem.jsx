@@ -155,7 +155,10 @@ export const ReviewSystem = ({ userId, ticketId, transactionId, currentUserId })
                   variant={userProfile?.kyc_status === 'verified' ? 'default' : 'secondary'}
                   className="ml-1"
                 >
-                  {userProfile?.kyc_status || 'Pending'}
+                  {userProfile?.kyc_status === 'verified' ? 'Verified' :
+                   userProfile?.kyc_status === 'pending' ? 'Under Review' :
+                   userProfile?.kyc_status === 'rejected' ? 'Rejected' :
+                   'Not Started'}
                 </Badge>
               </p>
             </div>

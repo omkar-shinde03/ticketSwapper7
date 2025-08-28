@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Video, VideoIcon, Mic, MicOff, VideoOff, Phone, CheckCircle, X, User, FileText } from "lucide-react";
+import { VideoIcon, Mic, MicOff, VideoOff, Phone, CheckCircle, X, User, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -23,7 +23,6 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const { toast } = useToast();
-  const [callLoading, setCallLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [peerConnection, setPeerConnection] = useState(null);
   const [callId, setCallId] = useState(null);
@@ -152,86 +151,9 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
     return pc;
   };
 
-  // Admin starts a video call
-  const handleStartCall = async (req) => {
-    setCallLoading(true);
-    setActiveCall(req);
-    setShowVideoDialog(true);
-    try {
-      // Update video_calls status to 'admin_connected' to notify user
-      await supabase
-        .from('video_calls')
-        .update({ status: 'admin_connected' })
-        .eq('id', req.id);
-      // Now prompt admin for camera/mic and start WebRTC as offerer
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-      // Start WebRTC as offerer (existing logic)
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-        ],
-      });
-      setPeerConnection(pc);
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
-      setCallId(req.id);
-      joinSignalingChannel(req.id, async (msg) => {
-        console.log('[Admin] Signaling message received:', msg);
-        if (msg.type === 'answer') {
-          console.log('[Admin] Received answer');
-          await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
-          toast({ title: 'User Connected', description: 'The user has joined the call.' });
-        } else if (msg.type === 'ice-candidate' && msg.candidate) {
-          console.log('[Admin] Received ICE candidate:', msg.candidate);
-          try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
-        }
-      });
-      pc.onicecandidate = (event) => {
-        if (event.candidate && req.id) {
-          sendSignal(req.id, { type: 'ice-candidate', candidate: event.candidate });
-          console.log('[Admin] Sent ICE candidate');
-        }
-      };
-      pc.ontrack = (event) => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          console.log('[Admin] Remote stream set');
-        }
-      };
-      pc.onconnectionstatechange = () => {
-        console.log('[Admin] Connection state:', pc.connectionState);
-        if (pc.connectionState === 'connected') {
-          setStatusMessage('Admin Connected');
-          setAdminConnected(true);
-        }
-        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-          endVideoCall();
-        }
-      };
-      // 3. Create offer and send to user
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      sendSignal(req.id, { type: 'offer', offer });
-      // 4. Update video_calls status
-      // await supabase
-      //   .from('video_calls')
-      //   .update({ status: 'admin_connected' })
-      //   .eq('id', req.id);
-      toast({ title: 'Waiting for user to join...', description: 'Please keep this window open.' });
-    } catch (error) {
-      toast({ title: 'Error', description: error.message || 'Failed to start video call', variant: 'destructive' });
-      setShowVideoDialog(false);
-      setActiveCall(null);
-    } finally {
-      setCallLoading(false);
-    }
-  };
+
 
   const handleAcceptCall = async (req) => {
-    setCallLoading(true);
     try {
       await supabase
         .from('video_calls')
@@ -272,8 +194,6 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
       sendSignal(req.id, { type: 'admin-joined' });
     } catch (error) {
       toast({ title: 'Error', description: error.message || 'Failed to start video call', variant: 'destructive' });
-    } finally {
-      setCallLoading(false);
     }
   };
 
@@ -479,12 +399,7 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button onClick={() => handleStartCall(req)} disabled={callLoading}>
-                          <Video className="h-4 w-4 mr-1" />
-                          Start Call
-                        </Button>
-                      </div>
+
                     </div>
                   ))}
                 </div>
@@ -643,12 +558,12 @@ export const VideoKYCVerification = ({ users, onUpdate }) => {
               </Tooltip>
             </div>
             {/* Loading overlays */}
-            {(callLoading || actionLoading) && (
+            {actionLoading && (
               <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-50">
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
                   <span className="text-blue-700 font-medium text-lg">
-                    {callLoading ? 'Starting video call...' : 'Processing...'}
+                    Processing...
                   </span>
                 </div>
               </div>

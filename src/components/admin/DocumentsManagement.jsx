@@ -53,6 +53,22 @@ export const DocumentsManagement = () => {
       }
 
       setDocuments(data || []);
+      
+      // Debug: List all files in storage bucket
+      try {
+        const { data: storageFiles, error: storageError } = await supabase.storage
+          .from('kyc-documents')
+          .list('', { limit: 100 });
+        
+        if (storageError) {
+          console.error('Error listing storage files:', storageError);
+        } else {
+          console.log('Available files in kyc-documents bucket:', storageFiles);
+        }
+      } catch (storageError) {
+        console.error('Could not list storage files:', storageError);
+      }
+      
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -67,34 +83,146 @@ export const DocumentsManagement = () => {
 
   const downloadDocument = async (documentUrl, fileName, storagePathFromDb) => {
     try {
-      // Prefer storagePathFromDb if available
+      console.log('Downloading document with params:', { documentUrl, fileName, storagePathFromDb });
+      
+      // Use storagePathFromDb if available, otherwise use documentUrl
       let storagePath = storagePathFromDb || documentUrl;
+      
       // If documentUrl is a full URL, extract the path after 'kyc-documents/'
       if (documentUrl && documentUrl.startsWith('http')) {
         const match = documentUrl.match(/kyc-documents\/([^?]+)/);
         storagePath = match ? match[1] : documentUrl;
       }
-      const { data, error } = await supabase.storage
-        .from('kyc-documents')
-        .download(storagePath);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({
-        title: "Success",
-        description: "Document downloaded successfully.",
-      });
+      
+      // Clean up the storage path - remove any query parameters or extra paths
+      if (storagePath && storagePath.includes('?')) {
+        storagePath = storagePath.split('?')[0];
+      }
+      
+      console.log('Using storage path:', storagePath);
+      
+      // First, check if the file exists in storage
+      try {
+        const { data: fileList, error: listError } = await supabase.storage
+          .from('kyc-documents')
+          .list('', {
+            limit: 1000,
+            offset: 0,
+            search: storagePath
+          });
+        
+        if (listError) {
+          console.error('Error listing files:', listError);
+        } else {
+          console.log('Files in bucket:', fileList);
+          const fileExists = fileList?.some(file => file.name === storagePath);
+          if (!fileExists) {
+            throw new Error(`File not found in storage: ${storagePath}`);
+          }
+        }
+      } catch (listError) {
+        console.log('Could not verify file existence:', listError);
+      }
+      
+      // Method 1: Try signed URL first
+      try {
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from('kyc-documents')
+          .createSignedUrl(storagePath, 60); // 60 seconds expiry
+        
+        if (!signedUrlError && signedUrlData?.signedUrl) {
+          console.log('Using signed URL for download:', signedUrlData.signedUrl);
+          const response = await fetch(signedUrlData.signedUrl);
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          toast({
+            title: "Success",
+            description: "Document downloaded successfully.",
+          });
+          return;
+        } else {
+          console.error('Signed URL error:', signedUrlError);
+        }
+      } catch (signedUrlError) {
+        console.log('Signed URL method failed:', signedUrlError);
+      }
+      
+      // Method 2: Try direct download
+      try {
+        const { data, error } = await supabase.storage
+          .from('kyc-documents')
+          .download(storagePath);
+          
+        if (error) {
+          console.error('Direct download error:', error);
+          throw error;
+        }
+        
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Success",
+          description: "Document downloaded successfully.",
+        });
+        return;
+      } catch (downloadError) {
+        console.log('Direct download method failed:', downloadError);
+      }
+      
+      // Method 3: Try public URL as last resort
+      try {
+        const { data: publicUrlData } = supabase.storage
+          .from('kyc-documents')
+          .getPublicUrl(storagePath);
+        
+        if (publicUrlData?.publicUrl) {
+          console.log('Using public URL for download:', publicUrlData.publicUrl);
+          const response = await fetch(publicUrlData.publicUrl);
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          toast({
+            title: "Success",
+            description: "Document downloaded successfully.",
+          });
+          return;
+        }
+      } catch (publicUrlError) {
+        console.log('Public URL method failed:', publicUrlError);
+      }
+      
+      // If all methods failed, provide specific error message
+      throw new Error(`File not found or inaccessible: ${storagePath}. Please check if the file exists in storage.`);
+      
     } catch (error) {
       console.error('Error downloading document:', error);
       toast({
         title: "Error",
-        description: "Failed to download document.",
+        description: `Failed to download document: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -235,7 +363,7 @@ export const DocumentsManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => downloadDocument(
-                              doc.document_url,
+                              doc.file_url,
                               `${doc.document_type}_${doc.full_name || 'unknown'}.pdf`,
                               doc.storage_path
                             )}

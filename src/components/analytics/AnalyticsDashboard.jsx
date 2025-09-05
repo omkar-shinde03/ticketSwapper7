@@ -294,7 +294,8 @@ const AnalyticsDashboard = () => {
             <CardTitle>Transaction Trends</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div style={{ width: '100%', height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={analytics.transactions}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
@@ -308,7 +309,8 @@ const AnalyticsDashboard = () => {
                   fillOpacity={0.3}
                 />
               </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -318,7 +320,8 @@ const AnalyticsDashboard = () => {
             <CardTitle>Revenue Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div style={{ width: '100%', height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.revenueData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
@@ -326,7 +329,8 @@ const AnalyticsDashboard = () => {
                 <Tooltip formatter={(value) => formatCurrency(value)} />
                 <Bar dataKey="revenue" fill="#10b981" />
               </BarChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -339,7 +343,8 @@ const AnalyticsDashboard = () => {
             <CardTitle>User Growth</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div style={{ width: '100%', height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <LineChart data={analytics.userGrowth}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
@@ -352,7 +357,8 @@ const AnalyticsDashboard = () => {
                   strokeWidth={3}
                 />
               </LineChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -362,7 +368,8 @@ const AnalyticsDashboard = () => {
             <CardTitle>User Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div style={{ width: '100%', height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={analytics.userActivity}
@@ -379,7 +386,8 @@ const AnalyticsDashboard = () => {
                 </Pie>
                 <Tooltip />
               </PieChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>

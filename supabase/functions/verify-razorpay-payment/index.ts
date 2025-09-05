@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
       .from('tickets')
       .update({ 
         status: 'sold',
-        buyer_id: buyer_id || null,
+        buyer_id: buyer_id,
         sold_at: new Date().toISOString()
       })
       .eq('id', ticketId);

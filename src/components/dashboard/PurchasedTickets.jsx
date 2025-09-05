@@ -36,13 +36,7 @@ export const PurchasedTickets = ({ userId }) => {
       // Get tickets where user is the buyer
       const { data: tickets, error: ticketsError } = await supabase
         .from('tickets')
-        .select(`
-          *,
-          profiles!tickets_seller_id_fkey (
-            full_name,
-            phone
-          )
-        `)
+        .select('*')
         .eq('buyer_id', userId)
         .eq('status', 'sold')
         .order('sold_at', { ascending: false });
@@ -231,7 +225,7 @@ Thank you for using our service!
                     </div>
                     <div className="text-sm">
                       <span className="text-muted-foreground">Operator: </span>
-                      <span>{ticket.bus_operator || ticket.train_number || ticket.flight_number}</span>
+                      <span>{ticket.bus_operator || ticket.train_number || ticket.flight_number || 'N/A'}</span>
                     </div>
                   </div>
                 </div>

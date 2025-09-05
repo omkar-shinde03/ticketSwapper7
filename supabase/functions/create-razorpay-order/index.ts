@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       receipt: `tkt_${Date.now()}`
     });
 
-    // Create Razorpay order
+    // Create Razorpay order (test mode for college project)
     const orderData = {
       amount: Math.round(amount * 100), // Convert to paise (smallest currency unit)
       currency: 'INR',
@@ -147,7 +147,8 @@ Deno.serve(async (req) => {
       notes: {
         ticketId: ticketId,
         sellerAmount: sellerAmount.toString(),
-        platformCommission: platformCommission.toString()
+        platformCommission: platformCommission.toString(),
+        test_mode: 'true' // Mark as test mode
       }
     };
 

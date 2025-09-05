@@ -110,6 +110,7 @@ export const RazorpayEscrowPayment = ({
               });
 
               onSuccess && onSuccess(verifyData);
+              setIsProcessing(false);
             } catch (error) {
               console.error('Payment verification error:', error);
               toast({
@@ -117,6 +118,7 @@ export const RazorpayEscrowPayment = ({
                 description: "Please contact support if amount was deducted.",
                 variant: "destructive"
               });
+              setIsProcessing(false);
             }
           },
           prefill: {

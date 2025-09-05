@@ -190,12 +190,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update ticket status
+    // Update ticket status and passenger name with buyer's name
     const { error: ticketUpdateError } = await supabase
       .from('tickets')
       .update({ 
         status: 'sold',
         buyer_id: buyer_id,
+        passenger_name: buyer_name || 'Unknown Buyer', // Update passenger name with buyer's name
         sold_at: new Date().toISOString()
       })
       .eq('id', ticketId);

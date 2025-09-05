@@ -104,11 +104,17 @@ export const RazorpayEscrowPayment = ({
                 throw new Error('Payment verification failed. Please contact support.');
               }
 
+              // Show success message
               toast({
-                title: "Payment Successful!",
-                description: "Your ticket purchase is complete. The seller will receive their payment automatically.",
+                title: "🎉 Payment Successful!",
+                description: `You have successfully purchased the ticket from ${ticket.from_location} to ${ticket.to_location}. The ticket is now yours!`,
+                duration: 5000,
               });
 
+              // Close the payment modal
+              onClose();
+              
+              // Call success callback
               onSuccess && onSuccess(verifyData);
               setIsProcessing(false);
             } catch (error) {

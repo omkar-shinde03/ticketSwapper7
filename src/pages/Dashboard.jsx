@@ -19,6 +19,7 @@ import { PaymentSettings } from "@/components/dashboard/PaymentSettings";
 import { PendingPayouts } from "@/components/dashboard/PendingPayouts";
 import { EmailVerificationStatus } from "@/components/dashboard/EmailVerificationStatus";
 import { PhoneVerificationStatus } from "@/components/dashboard/PhoneVerificationStatus";
+import { PurchasedTickets } from "@/components/dashboard/PurchasedTickets";
 import { syncLocalTicketsWithExternal } from "@/utils/ticketApiClient";
 
 
@@ -242,10 +243,11 @@ const Dashboard = () => {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="sell">Sell Tickets</TabsTrigger>
             <TabsTrigger value="buy">Buy Tickets</TabsTrigger>
             <TabsTrigger value="my-tickets">My Tickets</TabsTrigger>
+            <TabsTrigger value="purchased">Purchased</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
             <TabsTrigger value="verification">Verification</TabsTrigger>
             <TabsTrigger value="messages" className="relative">
@@ -310,6 +312,10 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="purchased" className="space-y-6">
+            <PurchasedTickets userId={user?.id} />
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-6">

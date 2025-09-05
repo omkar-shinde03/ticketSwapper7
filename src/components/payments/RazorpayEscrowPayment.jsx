@@ -93,7 +93,9 @@ export const RazorpayEscrowPayment = ({
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_signature: response.razorpay_signature,
-                    ticketId: ticket.id
+                    ticketId: ticket.id,
+                    buyer_id: user.id,
+                    buyer_name: user.user_metadata?.full_name || user.email
                   }
                 }
               );
@@ -145,7 +147,9 @@ export const RazorpayEscrowPayment = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">

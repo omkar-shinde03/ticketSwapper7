@@ -23,7 +23,9 @@ Deno.serve(async (req) => {
       razorpay_payment_id, 
       razorpay_order_id, 
       razorpay_signature, 
-      ticketId 
+      ticketId,
+      buyer_id,
+      buyer_name
     } = await req.json();
 
     // Validate required fields
@@ -159,7 +161,7 @@ Deno.serve(async (req) => {
       .from('transactions')
       .insert({
         ticket_id: ticketId,
-        buyer_id: ticket.buyer_id || null, // Will be updated when buyer is known
+        buyer_id: buyer_id || null,
         seller_id: ticket.seller_id,
         amount: sellingPrice,
         platform_fee: platformCommission,
@@ -196,7 +198,7 @@ Deno.serve(async (req) => {
       .from('tickets')
       .update({ 
         status: 'sold',
-        buyer_id: ticket.buyer_id || null,
+        buyer_id: buyer_id || null,
         sold_at: new Date().toISOString()
       })
       .eq('id', ticketId);
